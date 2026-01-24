@@ -101,6 +101,62 @@ function ProtectedRoute({ children }) {
   return user ? children : <Navigate to="/login" />;
 }
 
+// OAuth Callback Handler
+function AuthCallback() {
+  const navigate = useNavigate();
+  const { setUserData } = useAuth();
+  const hasProcessed = useRef(false);
+
+  useEffect(() => {
+    // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+    if (hasProcessed.current) return;
+    hasProcessed.current = true;
+
+    const processSession = async () => {
+      try {
+        // Extract session_id from URL fragment
+        const hash = window.location.hash;
+        const params = new URLSearchParams(hash.substring(1));
+        const sessionId = params.get('session_id');
+
+        if (!sessionId) {
+          console.error('No session_id found');
+          navigate('/login');
+          return;
+        }
+
+        // Exchange session_id for user data
+        const response = await api.post('/api/auth/oauth/session', null, {
+          headers: {
+            'X-Session-ID': sessionId,
+          },
+        });
+
+        // Set user data
+        setUserData(response.data);
+
+        // Clear fragment and redirect to dashboard
+        window.history.replaceState(null, '', '/dashboard');
+        navigate('/dashboard', { replace: true, state: { user: response.data } });
+      } catch (error) {
+        console.error('OAuth session error:', error);
+        navigate('/login');
+      }
+    };
+
+    processSession();
+  }, [navigate, setUserData]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-white">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primary-600 mx-auto mb-4"></div>
+        <p className="text-gray-600 text-lg">Completing sign in...</p>
+      </div>
+    </div>
+  );
+}
+
 // Landing Page
 function LandingPage() {
   const navigate = useNavigate();
