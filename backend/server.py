@@ -6,6 +6,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta, timezone
 from pymongo import MongoClient
 from passlib.context import CryptContext
+from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest
 import jwt
 import os
 from dotenv import load_dotenv
