@@ -240,7 +240,7 @@ async def login(credentials: UserLogin):
     return {"access_token": token, "token_type": "bearer", "user": user_response}
 
 @app.get("/api/auth/me")
-async def get_me(current_user: dict = Depends(get_current_user)):
+async def get_me(current_user: dict = Depends(get_current_user_flexible)):
     # Get workspace info
     team_member = team_members_collection.find_one({"user_id": current_user["user_id"]})
     workspace = None
@@ -254,6 +254,137 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         "workspace": workspace,
         "role": team_member["role"] if team_member else None
     }
+
+# OAuth Session Processing
+@app.post("/api/auth/oauth/session")
+async def process_oauth_session(x_session_id: str = Header(...), response: Response = None):
+    """Process OAuth session_id from Emergent Auth and create user session"""
+    
+    # Exchange session_id for user data from Emergent Auth
+    async with httpx.AsyncClient() as client:
+        try:
+            auth_response = await client.get(
+                "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
+                headers={"X-Session-ID": x_session_id},
+                timeout=10.0
+            )
+            
+            if auth_response.status_code != 200:
+                raise HTTPException(status_code=401, detail="Invalid session ID")
+            
+            oauth_data = auth_response.json()
+            
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=500, detail=f"Failed to validate session: {str(e)}")
+    
+    # Extract user data
+    email = oauth_data.get("email")
+    name = oauth_data.get("name")
+    picture = oauth_data.get("picture")
+    session_token = oauth_data.get("session_token")
+    
+    if not email or not session_token:
+        raise HTTPException(status_code=400, detail="Invalid OAuth data")
+    
+    # Check if user exists
+    user = users_collection.find_one({"email": email})
+    
+    if user:
+        # Update existing user
+        user_id = user["user_id"]
+        users_collection.update_one(
+            {"user_id": user_id},
+            {"$set": {
+                "full_name": name,
+                "picture": picture,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+    else:
+        # Create new user
+        user_id = str(uuid.uuid4())
+        user = {
+            "user_id": user_id,
+            "email": email,
+            "full_name": name,
+            "picture": picture,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        users_collection.insert_one(user)
+        
+        # Create default workspace
+        workspace_id = str(uuid.uuid4())
+        workspace = {
+            "workspace_id": workspace_id,
+            "name": f"{name}'s Workspace",
+            "owner_id": user_id,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "settings": {}
+        }
+        workspaces_collection.insert_one(workspace)
+        
+        # Add user as team member (owner)
+        team_member = {
+            "member_id": str(uuid.uuid4()),
+            "workspace_id": workspace_id,
+            "user_id": user_id,
+            "role": "owner",
+            "joined_at": datetime.now(timezone.utc).isoformat()
+        }
+        team_members_collection.insert_one(team_member)
+    
+    # Create session in database
+    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    session = {
+        "user_id": user_id,
+        "session_token": session_token,
+        "expires_at": expires_at,
+        "created_at": datetime.now(timezone.utc)
+    }
+    
+    # Remove old sessions for this user
+    user_sessions_collection.delete_many({"user_id": user_id})
+    user_sessions_collection.insert_one(session)
+    
+    # Set httpOnly cookie
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        max_age=7 * 24 * 60 * 60,  # 7 days
+        path="/"
+    )
+    
+    # Get workspace
+    team_member = team_members_collection.find_one({"user_id": user_id})
+    workspace_id = team_member["workspace_id"] if team_member else None
+    
+    # Return user data
+    return {
+        "user_id": user_id,
+        "email": email,
+        "full_name": name,
+        "picture": picture,
+        "workspace_id": workspace_id
+    }
+
+# Logout
+@app.post("/api/auth/logout")
+async def logout(request: Request, response: Response):
+    """Logout user and clear session"""
+    session_token = request.cookies.get("session_token")
+    
+    if session_token:
+        # Delete session from database
+        user_sessions_collection.delete_one({"session_token": session_token})
+    
+    # Clear cookie
+    response.delete_cookie(key="session_token", path="/")
+    
+    return {"message": "Logged out successfully"}
 
 if __name__ == "__main__":
     import uvicorn
