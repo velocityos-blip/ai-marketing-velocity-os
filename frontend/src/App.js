@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import { SubscriptionPage, AIToolsPage, TasksPage } from './pages';
 import './App.css';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
