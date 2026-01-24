@@ -1025,6 +1025,14 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/team"
+        element={
+          <ProtectedRoute>
+            <TeamPage />
+          </ProtectedRoute>
+        }
+      />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );
