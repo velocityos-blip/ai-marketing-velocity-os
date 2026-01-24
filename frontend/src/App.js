@@ -586,31 +586,16 @@ function DashboardPage() {
           <div className="flex items-center space-x-8">
             <div className="text-2xl font-bold text-primary-600">MarketingOS</div>
             <div className="flex space-x-4">
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="px-4 py-2 text-gray-700 hover:text-primary-600 font-medium"
-                data-testid="nav-dashboard"
-              >
-                Dashboard
-              </button>
-              <button
-                onClick={() => navigate('/team')}
-                className="px-4 py-2 text-gray-700 hover:text-primary-600 font-medium"
-                data-testid="nav-team"
-              >
-                Team
-              </button>
+              <button onClick={() => navigate('/dashboard')} className="px-4 py-2 text-primary-600 font-medium border-b-2 border-primary-600" data-testid="nav-dashboard">Dashboard</button>
+              <button onClick={() => navigate('/team')} className="px-4 py-2 text-gray-700 hover:text-primary-600 font-medium" data-testid="nav-team">Team</button>
+              <button onClick={() => navigate('/tasks')} className="px-4 py-2 text-gray-700 hover:text-primary-600 font-medium">Tasks</button>
+              <button onClick={() => navigate('/ai-tools')} className="px-4 py-2 text-gray-700 hover:text-primary-600 font-medium">AI Tools</button>
+              <button onClick={() => navigate('/subscription')} className="px-4 py-2 text-gray-700 hover:text-primary-600 font-medium">Subscription</button>
             </div>
           </div>
           <div className="flex items-center space-x-6">
             <span className="text-gray-700" data-testid="user-name">Welcome, {user?.full_name}</span>
-            <button
-              onClick={logout}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              data-testid="logout-btn"
-            >
-              Logout
-            </button>
+            <button onClick={logout} className="px-4 py-2 text-gray-600 hover:text-gray-800" data-testid="logout-btn">Logout</button>
           </div>
         </div>
       </nav>
@@ -639,6 +624,26 @@ function DashboardPage() {
           </div>
         </div>
 
+        {/* Quick Actions Grid */}
+        <h2 className="text-2xl font-bold mb-6">Quick Actions</h2>
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
+          <button onClick={() => navigate('/ai-tools')} className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition">
+            <div className="text-3xl mb-2">🤖</div>
+            <h3 className="text-xl font-bold mb-2">AI Content Tools</h3>
+            <p className="text-sm opacity-90">Generate copy, ads, and content with AI</p>
+          </button>
+          <button onClick={() => navigate('/tasks')} className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition">
+            <div className="text-3xl mb-2">✅</div>
+            <h3 className="text-xl font-bold mb-2">Task Management</h3>
+            <p className="text-sm opacity-90">Organize and track your marketing tasks</p>
+          </button>
+          <button onClick={() => navigate('/team')} className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition">
+            <div className="text-3xl mb-2">👥</div>
+            <h3 className="text-xl font-bold mb-2">Team Collaboration</h3>
+            <p className="text-sm opacity-90">Invite and manage your team members</p>
+          </button>
+        </div>
+
         {/* Getting Started */}
         <div className="bg-white rounded-xl shadow-md p-8" data-testid="getting-started">
           <h2 className="text-2xl font-bold mb-6">Getting Started</h2>
@@ -652,10 +657,7 @@ function DashboardPage() {
                 <p className="text-gray-600 text-sm">Add your website and social media accounts</p>
               </div>
             </div>
-            <div 
-              className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-primary-300 cursor-pointer"
-              onClick={() => navigate('/team')}
-            >
+            <div className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-primary-300 cursor-pointer" onClick={() => navigate('/team')}>
               <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center mr-4">
                 <span className="text-primary-600 font-bold">2</span>
               </div>
@@ -664,7 +666,7 @@ function DashboardPage() {
                 <p className="text-gray-600 text-sm">Collaborate with your marketing team</p>
               </div>
             </div>
-            <div className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-primary-300 cursor-pointer">
+            <div className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-primary-300 cursor-pointer" onClick={() => navigate('/subscription')}>
               <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center mr-4">
                 <span className="text-primary-600 font-bold">3</span>
               </div>
