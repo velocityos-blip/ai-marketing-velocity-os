@@ -1034,6 +1034,89 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/subscription"
+        element={
+          <ProtectedRoute>
+            <SubscriptionPage user={user} onLogout={logout} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/ai-tools"
+        element={
+          <ProtectedRoute>
+            <AIToolsPage user={user} onLogout={logout} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tasks"
+        element={
+          <ProtectedRoute>
+            <TasksPage user={user} onLogout={logout} />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="*" element={<Navigate to="/" />} />
+    </Routes>
+  );
+}
+
+function AppRoutes() {
+  const location = useLocation();
+  const { user, logout } = useAuth();
+
+  // Check for session_id in URL fragment (synchronously during render to prevent race conditions)
+  if (location.hash?.includes('session_id=')) {
+    return <AuthCallback />;
+  }
+
+  return (
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/team"
+        element={
+          <ProtectedRoute>
+            <TeamPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/subscription"
+        element={
+          <ProtectedRoute>
+            <SubscriptionPage user={user} onLogout={logout} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/ai-tools"
+        element={
+          <ProtectedRoute>
+            <AIToolsPage user={user} onLogout={logout} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tasks"
+        element={
+          <ProtectedRoute>
+            <TasksPage user={user} onLogout={logout} />
+          </ProtectedRoute>
+        }
+      />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );
