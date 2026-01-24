@@ -19,7 +19,10 @@ app = FastAPI(title="Marketing SaaS API")
 # CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "https://eac43bf6-8376-434e-9f51-be04df910ffc.preview.emergentagent.com"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
