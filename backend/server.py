@@ -102,6 +102,64 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     user.pop("password", None)
     return user
 
+# OAuth authentication helper - checks cookie first, then Authorization header
+async def get_current_user_flexible(request: Request, authorization: Optional[str] = Header(None)):
+    # Check for session_token in cookies first
+    session_token = request.cookies.get("session_token")
+    
+    if session_token:
+        # Validate session token from cookie
+        session = user_sessions_collection.find_one({"session_token": session_token})
+        if session:
+            # Check expiry
+            expires_at = session["expires_at"]
+            if isinstance(expires_at, str):
+                expires_at = datetime.fromisoformat(expires_at)
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            
+            if expires_at < datetime.now(timezone.utc):
+                raise HTTPException(status_code=401, detail="Session expired")
+            
+            # Get user
+            user = users_collection.find_one({"user_id": session["user_id"]}, {"_id": 0, "password": 0})
+            if not user:
+                raise HTTPException(status_code=401, detail="User not found")
+            return user
+    
+    # Fallback to Authorization header (JWT or session token)
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.replace("Bearer ", "")
+        
+        # Try session token first
+        session = user_sessions_collection.find_one({"session_token": token})
+        if session:
+            expires_at = session["expires_at"]
+            if isinstance(expires_at, str):
+                expires_at = datetime.fromisoformat(expires_at)
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            
+            if expires_at < datetime.now(timezone.utc):
+                raise HTTPException(status_code=401, detail="Session expired")
+            
+            user = users_collection.find_one({"user_id": session["user_id"]}, {"_id": 0, "password": 0})
+            if user:
+                return user
+        
+        # Try JWT token
+        try:
+            payload = decode_token(token)
+            user_id = payload.get("user_id")
+            if user_id:
+                user = users_collection.find_one({"user_id": user_id}, {"_id": 0, "password": 0})
+                if user:
+                    return user
+        except:
+            pass
+    
+    raise HTTPException(status_code=401, detail="Not authenticated")
+
 # Routes
 @app.get("/api/health")
 async def health_check():
