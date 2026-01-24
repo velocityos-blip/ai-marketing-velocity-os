@@ -575,13 +575,32 @@ function RegisterPage() {
 // Dashboard Page
 function DashboardPage() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navigation */}
       <nav className="bg-white shadow-sm" data-testid="dashboard-nav">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="text-2xl font-bold text-primary-600">MarketingOS</div>
+          <div className="flex items-center space-x-8">
+            <div className="text-2xl font-bold text-primary-600">MarketingOS</div>
+            <div className="flex space-x-4">
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="px-4 py-2 text-gray-700 hover:text-primary-600 font-medium"
+                data-testid="nav-dashboard"
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={() => navigate('/team')}
+                className="px-4 py-2 text-gray-700 hover:text-primary-600 font-medium"
+                data-testid="nav-team"
+              >
+                Team
+              </button>
+            </div>
+          </div>
           <div className="flex items-center space-x-6">
             <span className="text-gray-700" data-testid="user-name">Welcome, {user?.full_name}</span>
             <button
@@ -632,7 +651,10 @@ function DashboardPage() {
                 <p className="text-gray-600 text-sm">Add your website and social media accounts</p>
               </div>
             </div>
-            <div className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-primary-300 cursor-pointer">
+            <div 
+              className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-primary-300 cursor-pointer"
+              onClick={() => navigate('/team')}
+            >
               <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center mr-4">
                 <span className="text-primary-600 font-bold">2</span>
               </div>
@@ -653,6 +675,319 @@ function DashboardPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Team Page
+function TeamPage() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [members, setMembers] = useState([]);
+  const [invitations, setInvitations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('member');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    loadTeamData();
+  }, [user]);
+
+  const loadTeamData = async () => {
+    if (!user?.workspace_id) return;
+    
+    try {
+      const [membersRes, invitesRes] = await Promise.all([
+        api.get(`/api/workspaces/${user.workspace_id}/members`),
+        api.get('/api/invitations')
+      ]);
+      setMembers(membersRes.data);
+      setInvitations(invitesRes.data);
+    } catch (error) {
+      console.error('Error loading team data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInvite = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setInviteLoading(true);
+
+    try {
+      await api.post('/api/invitations', {
+        email: inviteEmail,
+        workspace_id: user.workspace_id,
+        role: inviteRole
+      });
+      setSuccess('Invitation sent successfully!');
+      setInviteEmail('');
+      setInviteRole('member');
+      setShowInviteModal(false);
+      loadTeamData();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to send invitation');
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleRemoveMember = async (memberId) => {
+    if (!window.confirm('Are you sure you want to remove this member?')) return;
+
+    try {
+      await api.delete(`/api/workspaces/${user.workspace_id}/members/${memberId}`);
+      setSuccess('Member removed successfully');
+      loadTeamData();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to remove member');
+    }
+  };
+
+  const handleAcceptInvitation = async (invitationId) => {
+    try {
+      await api.post(`/api/invitations/${invitationId}/accept`);
+      setSuccess('Invitation accepted!');
+      loadTeamData();
+      window.location.reload(); // Refresh to update workspace
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to accept invitation');
+    }
+  };
+
+  const handleDeclineInvitation = async (invitationId) => {
+    try {
+      await api.post(`/api/invitations/${invitationId}/decline`);
+      setSuccess('Invitation declined');
+      loadTeamData();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to decline invitation');
+    }
+  };
+
+  const canInvite = user?.role === 'owner' || user?.role === 'admin';
+  const canRemove = user?.role === 'owner' || user?.role === 'admin';
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Navigation */}
+      <nav className="bg-white shadow-sm">
+        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center space-x-8">
+            <div className="text-2xl font-bold text-primary-600">MarketingOS</div>
+            <div className="flex space-x-4">
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="px-4 py-2 text-gray-700 hover:text-primary-600 font-medium"
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={() => navigate('/team')}
+                className="px-4 py-2 text-primary-600 font-medium border-b-2 border-primary-600"
+              >
+                Team
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center space-x-6">
+            <span className="text-gray-700">Welcome, {user?.full_name}</span>
+            <button onClick={logout} className="px-4 py-2 text-gray-600 hover:text-gray-800">
+              Logout
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <div className="container mx-auto px-6 py-8" data-testid="team-page">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Team Members</h1>
+            <p className="text-gray-600 mt-2">Manage your workspace team</p>
+          </div>
+          {canInvite && (
+            <button
+              onClick={() => setShowInviteModal(true)}
+              className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium"
+              data-testid="invite-member-btn"
+            >
+              + Invite Member
+            </button>
+          )}
+        </div>
+
+        {/* Alerts */}
+        {error && (
+          <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-4" data-testid="error-message">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="bg-green-50 text-green-600 p-4 rounded-lg mb-4" data-testid="success-message">
+            {success}
+          </div>
+        )}
+
+        {/* Pending Invitations for current user */}
+        {invitations.length > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Pending Invitations</h2>
+            {invitations.map((invite) => (
+              <div key={invite.invitation_id} className="bg-white p-4 rounded-lg mb-3 flex justify-between items-center">
+                <div>
+                  <p className="font-semibold">{invite.workspace_name}</p>
+                  <p className="text-sm text-gray-600">Invited by {invite.invited_by_name} as {invite.role}</p>
+                </div>
+                <div className="space-x-3">
+                  <button
+                    onClick={() => handleAcceptInvitation(invite.invitation_id)}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    data-testid="accept-invitation-btn"
+                  >
+                    Accept
+                  </button>
+                  <button
+                    onClick={() => handleDeclineInvitation(invite.invitation_id)}
+                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+                    data-testid="decline-invitation-btn"
+                  >
+                    Decline
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Team Members List */}
+        <div className="bg-white rounded-xl shadow-md overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Member</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Email</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Role</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Joined</th>
+                  {canRemove && <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Actions</th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {members.map((member) => (
+                  <tr key={member.member_id} data-testid="team-member-row">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center">
+                        <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-semibold">
+                          {member.user?.full_name?.charAt(0)}
+                        </div>
+                        <span className="ml-3 font-medium">{member.user?.full_name}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-gray-600">{member.user?.email}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        member.role === 'owner' ? 'bg-purple-100 text-purple-700' :
+                        member.role === 'admin' ? 'bg-blue-100 text-blue-700' :
+                        'bg-gray-100 text-gray-700'
+                      }`}>
+                        {member.role}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-gray-600">
+                      {new Date(member.joined_at).toLocaleDateString()}
+                    </td>
+                    {canRemove && (
+                      <td className="px-6 py-4">
+                        {member.role !== 'owner' && member.user_id !== user.user_id && (
+                          <button
+                            onClick={() => handleRemoveMember(member.member_id)}
+                            className="text-red-600 hover:text-red-800 font-medium"
+                            data-testid="remove-member-btn"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Invite Modal */}
+      {showInviteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" data-testid="invite-modal">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
+            <h2 className="text-2xl font-bold mb-6">Invite Team Member</h2>
+            
+            <form onSubmit={handleInvite} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+                  placeholder="colleague@example.com"
+                  required
+                  data-testid="invite-email-input"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+                  data-testid="invite-role-select"
+                >
+                  <option value="member">Member</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+
+              <div className="flex space-x-3 mt-6">
+                <button
+                  type="submit"
+                  disabled={inviteLoading}
+                  className="flex-1 bg-primary-600 text-white py-3 rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50"
+                  data-testid="send-invitation-btn"
+                >
+                  {inviteLoading ? 'Sending...' : 'Send Invitation'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowInviteModal(false)}
+                  className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-300"
+                  data-testid="cancel-invitation-btn"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
