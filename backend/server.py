@@ -44,6 +44,7 @@ tasks_collection = db.tasks
 task_comments_collection = db.task_comments
 invitations_collection = db.invitations
 templates_collection = db.templates
+user_sessions_collection = db.user_sessions
 
 # Security
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
