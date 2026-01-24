@@ -49,6 +49,17 @@ task_comments_collection = db.task_comments
 invitations_collection = db.invitations
 templates_collection = db.templates
 user_sessions_collection = db.user_sessions
+payment_transactions_collection = db.payment_transactions
+
+# Subscription Packages
+SUBSCRIPTION_PACKAGES = {
+    "starter": {"name": "Starter", "base_price": 19.0, "base_users": 5, "additional_cost": 10.0},
+    "professional": {"name": "Professional", "base_price": 49.0, "base_users": 5, "additional_cost": 15.0},
+    "agency": {"name": "Agency", "base_price": 99.0, "base_users": 5, "additional_cost": 20.0}
+}
+
+# Stripe Setup
+STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
 
 # Security
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
