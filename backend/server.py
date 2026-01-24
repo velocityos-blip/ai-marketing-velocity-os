@@ -386,6 +386,266 @@ async def logout(request: Request, response: Response):
     
     return {"message": "Logged out successfully"}
 
+# Workspace Management
+@app.get("/api/workspaces/{workspace_id}")
+async def get_workspace(workspace_id: str, current_user: dict = Depends(get_current_user_flexible)):
+    # Check if user is member of workspace
+    team_member = team_members_collection.find_one({
+        "workspace_id": workspace_id,
+        "user_id": current_user["user_id"]
+    })
+    
+    if not team_member:
+        raise HTTPException(status_code=403, detail="Not authorized to access this workspace")
+    
+    workspace = workspaces_collection.find_one({"workspace_id": workspace_id}, {"_id": 0})
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    
+    return workspace
+
+@app.put("/api/workspaces/{workspace_id}")
+async def update_workspace(
+    workspace_id: str,
+    name: str,
+    current_user: dict = Depends(get_current_user_flexible)
+):
+    # Check if user is owner or admin
+    team_member = team_members_collection.find_one({
+        "workspace_id": workspace_id,
+        "user_id": current_user["user_id"]
+    })
+    
+    if not team_member or team_member["role"] not in ["owner", "admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized to update workspace")
+    
+    workspaces_collection.update_one(
+        {"workspace_id": workspace_id},
+        {"$set": {"name": name}}
+    )
+    
+    return {"message": "Workspace updated successfully"}
+
+# Team Management
+@app.get("/api/workspaces/{workspace_id}/members")
+async def get_team_members(workspace_id: str, current_user: dict = Depends(get_current_user_flexible)):
+    # Check if user is member of workspace
+    team_member = team_members_collection.find_one({
+        "workspace_id": workspace_id,
+        "user_id": current_user["user_id"]
+    })
+    
+    if not team_member:
+        raise HTTPException(status_code=403, detail="Not authorized to access this workspace")
+    
+    # Get all team members
+    members = list(team_members_collection.find({"workspace_id": workspace_id}, {"_id": 0}))
+    
+    # Enrich with user data
+    for member in members:
+        user = users_collection.find_one({"user_id": member["user_id"]}, {"_id": 0, "password": 0})
+        if user:
+            member["user"] = user
+    
+    return members
+
+class InvitationCreate(BaseModel):
+    email: EmailStr
+    workspace_id: str
+    role: str = "member"
+
+@app.post("/api/invitations")
+async def create_invitation(
+    invitation: InvitationCreate,
+    current_user: dict = Depends(get_current_user_flexible)
+):
+    # Check if user is owner or admin
+    team_member = team_members_collection.find_one({
+        "workspace_id": invitation.workspace_id,
+        "user_id": current_user["user_id"]
+    })
+    
+    if not team_member or team_member["role"] not in ["owner", "admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized to invite members")
+    
+    # Check if user already exists in workspace
+    existing_user = users_collection.find_one({"email": invitation.email})
+    if existing_user:
+        existing_member = team_members_collection.find_one({
+            "workspace_id": invitation.workspace_id,
+            "user_id": existing_user["user_id"]
+        })
+        if existing_member:
+            raise HTTPException(status_code=400, detail="User already in workspace")
+    
+    # Check if invitation already exists
+    existing_invitation = invitations_collection.find_one({
+        "workspace_id": invitation.workspace_id,
+        "email": invitation.email,
+        "status": "pending"
+    })
+    
+    if existing_invitation:
+        raise HTTPException(status_code=400, detail="Invitation already sent")
+    
+    # Get workspace details
+    workspace = workspaces_collection.find_one({"workspace_id": invitation.workspace_id})
+    
+    # Create invitation
+    invitation_id = str(uuid.uuid4())
+    invitation_doc = {
+        "invitation_id": invitation_id,
+        "workspace_id": invitation.workspace_id,
+        "workspace_name": workspace["name"],
+        "email": invitation.email,
+        "role": invitation.role,
+        "invited_by": current_user["user_id"],
+        "invited_by_name": current_user["full_name"],
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    invitations_collection.insert_one(invitation_doc)
+    
+    return {"message": "Invitation sent", "invitation_id": invitation_id}
+
+@app.get("/api/invitations")
+async def get_invitations(current_user: dict = Depends(get_current_user_flexible)):
+    """Get pending invitations for current user"""
+    invitations = list(invitations_collection.find({
+        "email": current_user["email"],
+        "status": "pending"
+    }, {"_id": 0}))
+    
+    return invitations
+
+@app.post("/api/invitations/{invitation_id}/accept")
+async def accept_invitation(invitation_id: str, current_user: dict = Depends(get_current_user_flexible)):
+    invitation = invitations_collection.find_one({
+        "invitation_id": invitation_id,
+        "email": current_user["email"],
+        "status": "pending"
+    })
+    
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+    
+    # Add user to workspace
+    member_id = str(uuid.uuid4())
+    team_member = {
+        "member_id": member_id,
+        "workspace_id": invitation["workspace_id"],
+        "user_id": current_user["user_id"],
+        "role": invitation["role"],
+        "joined_at": datetime.now(timezone.utc).isoformat()
+    }
+    team_members_collection.insert_one(team_member)
+    
+    # Update invitation status
+    invitations_collection.update_one(
+        {"invitation_id": invitation_id},
+        {"$set": {"status": "accepted", "accepted_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Invitation accepted", "workspace_id": invitation["workspace_id"]}
+
+@app.post("/api/invitations/{invitation_id}/decline")
+async def decline_invitation(invitation_id: str, current_user: dict = Depends(get_current_user_flexible)):
+    invitation = invitations_collection.find_one({
+        "invitation_id": invitation_id,
+        "email": current_user["email"],
+        "status": "pending"
+    })
+    
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+    
+    # Update invitation status
+    invitations_collection.update_one(
+        {"invitation_id": invitation_id},
+        {"$set": {"status": "declined", "declined_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Invitation declined"}
+
+@app.delete("/api/workspaces/{workspace_id}/members/{member_id}")
+async def remove_member(
+    workspace_id: str,
+    member_id: str,
+    current_user: dict = Depends(get_current_user_flexible)
+):
+    # Check if user is owner or admin
+    requester = team_members_collection.find_one({
+        "workspace_id": workspace_id,
+        "user_id": current_user["user_id"]
+    })
+    
+    if not requester or requester["role"] not in ["owner", "admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized to remove members")
+    
+    # Get member to remove
+    member = team_members_collection.find_one({
+        "member_id": member_id,
+        "workspace_id": workspace_id
+    })
+    
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+    
+    # Cannot remove owner
+    if member["role"] == "owner":
+        raise HTTPException(status_code=400, detail="Cannot remove workspace owner")
+    
+    # Admins cannot remove other admins
+    if requester["role"] == "admin" and member["role"] == "admin":
+        raise HTTPException(status_code=403, detail="Admins cannot remove other admins")
+    
+    # Remove member
+    team_members_collection.delete_one({"member_id": member_id})
+    
+    return {"message": "Member removed successfully"}
+
+@app.put("/api/workspaces/{workspace_id}/members/{member_id}/role")
+async def update_member_role(
+    workspace_id: str,
+    member_id: str,
+    new_role: str,
+    current_user: dict = Depends(get_current_user_flexible)
+):
+    # Only owners can change roles
+    requester = team_members_collection.find_one({
+        "workspace_id": workspace_id,
+        "user_id": current_user["user_id"]
+    })
+    
+    if not requester or requester["role"] != "owner":
+        raise HTTPException(status_code=403, detail="Only workspace owner can change roles")
+    
+    # Get member
+    member = team_members_collection.find_one({
+        "member_id": member_id,
+        "workspace_id": workspace_id
+    })
+    
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+    
+    # Cannot change owner role
+    if member["role"] == "owner":
+        raise HTTPException(status_code=400, detail="Cannot change owner role")
+    
+    # Validate new role
+    if new_role not in ["admin", "member"]:
+        raise HTTPException(status_code=400, detail="Invalid role")
+    
+    # Update role
+    team_members_collection.update_one(
+        {"member_id": member_id},
+        {"$set": {"role": new_role}}
+    )
+    
+    return {"message": "Role updated successfully"}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
