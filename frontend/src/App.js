@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import './App.css';
 
@@ -8,6 +8,7 @@ const API_URL = process.env.REACT_APP_BACKEND_URL;
 // API Helper
 const api = axios.create({
   baseURL: API_URL,
+  withCredentials: true, // Important for cookies
 });
 
 // Add token to requests
@@ -31,14 +32,14 @@ function AuthProvider({ children }) {
   }, []);
 
   const checkAuth = async () => {
+    // Check for JWT token or session cookie
     const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        const response = await api.get('/api/auth/me');
-        setUser(response.data);
-      } catch (error) {
-        localStorage.removeItem('token');
-      }
+    try {
+      const response = await api.get('/api/auth/me');
+      setUser(response.data);
+    } catch (error) {
+      localStorage.removeItem('token');
+      setUser(null);
     }
     setLoading(false);
   };
@@ -62,13 +63,22 @@ function AuthProvider({ children }) {
     return response.data;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await api.post('/api/auth/logout');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
     localStorage.removeItem('token');
     setUser(null);
   };
 
+  const setUserData = (userData) => {
+    setUser(userData);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loading, checkAuth, setUserData }}>
       {children}
     </AuthContext.Provider>
   );
