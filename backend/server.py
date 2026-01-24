@@ -661,6 +661,399 @@ async def update_member_role(
     
     return {"message": "Role updated successfully"}
 
+# ============================================
+# PHASE 4: STRIPE PAYMENT INTEGRATION
+# ============================================
+
+def calculate_subscription_price(package_id: str, user_count: int) -> float:
+    """Calculate total subscription price based on package and user count"""
+    if package_id not in SUBSCRIPTION_PACKAGES:
+        raise HTTPException(status_code=400, detail="Invalid package")
+    
+    package = SUBSCRIPTION_PACKAGES[package_id]
+    base_price = package["base_price"]
+    
+    if user_count <= package["base_users"]:
+        return base_price
+    
+    # Calculate additional users (in groups of 5)
+    additional_users = user_count - package["base_users"]
+    additional_groups = (additional_users + 4) // 5  # Round up to nearest 5
+    additional_cost = additional_groups * package["additional_cost"]
+    
+    return base_price + additional_cost
+
+class CheckoutRequestModel(BaseModel):
+    package_id: str
+    user_count: int = 5
+    origin_url: str
+
+@app.post("/api/payments/checkout")
+async def create_checkout_session(
+    checkout_req: CheckoutRequestModel,
+    current_user: dict = Depends(get_current_user_flexible),
+    request: Request = None
+):
+    """Create Stripe checkout session for subscription"""
+    # Calculate price on backend
+    amount = calculate_subscription_price(checkout_req.package_id, checkout_req.user_count)
+    
+    # Create success and cancel URLs
+    success_url = f"{checkout_req.origin_url}/subscription/success?session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{checkout_req.origin_url}/subscription"
+    
+    # Initialize Stripe
+    host_url = str(request.base_url)
+    webhook_url = f"{host_url}api/webhook/stripe"
+    stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
+    
+    # Create checkout session
+    checkout_request = CheckoutSessionRequest(
+        amount=amount,
+        currency="usd",
+        success_url=success_url,
+        cancel_url=cancel_url,
+        metadata={
+            "user_id": current_user["user_id"],
+            "workspace_id": current_user.get("workspace_id", ""),
+            "package_id": checkout_req.package_id,
+            "user_count": str(checkout_req.user_count)
+        }
+    )
+    
+    session = await stripe_checkout.create_checkout_session(checkout_request)
+    
+    # Create payment transaction record
+    transaction = {
+        "transaction_id": str(uuid.uuid4()),
+        "session_id": session.session_id,
+        "user_id": current_user["user_id"],
+        "workspace_id": current_user.get("workspace_id", ""),
+        "package_id": checkout_req.package_id,
+        "user_count": checkout_req.user_count,
+        "amount": amount,
+        "currency": "usd",
+        "payment_status": "pending",
+        "status": "initiated",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    payment_transactions_collection.insert_one(transaction)
+    
+    return {"url": session.url, "session_id": session.session_id}
+
+@app.get("/api/payments/status/{session_id}")
+async def get_payment_status(
+    session_id: str,
+    current_user: dict = Depends(get_current_user_flexible),
+    request: Request = None
+):
+    """Get payment status for a checkout session"""
+    # Initialize Stripe
+    host_url = str(request.base_url)
+    webhook_url = f"{host_url}api/webhook/stripe"
+    stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
+    
+    # Get checkout status from Stripe
+    checkout_status = await stripe_checkout.get_checkout_status(session_id)
+    
+    # Update transaction in database
+    transaction = payment_transactions_collection.find_one({"session_id": session_id})
+    if transaction:
+        update_data = {
+            "payment_status": checkout_status.payment_status,
+            "status": checkout_status.status,
+            "amount_total": checkout_status.amount_total,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        # If payment is complete and not already processed
+        if checkout_status.payment_status == "paid" and transaction.get("processed") != True:
+            # Create/update subscription
+            metadata = checkout_status.metadata
+            subscription = {
+                "subscription_id": str(uuid.uuid4()),
+                "workspace_id": metadata.get("workspace_id"),
+                "package_id": metadata.get("package_id"),
+                "user_count": int(metadata.get("user_count", 5)),
+                "status": "active",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "next_billing_date": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+            }
+            subscriptions_collection.insert_one(subscription)
+            
+            update_data["processed"] = True
+        
+        payment_transactions_collection.update_one(
+            {"session_id": session_id},
+            {"$set": update_data}
+        )
+    
+    return checkout_status
+
+@app.post("/api/webhook/stripe")
+async def stripe_webhook(request: Request):
+    """Handle Stripe webhook events"""
+    body = await request.body()
+    signature = request.headers.get("Stripe-Signature")
+    
+    # Initialize Stripe
+    host_url = str(request.base_url)
+    webhook_url = f"{host_url}api/webhook/stripe"
+    stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
+    
+    try:
+        webhook_response = await stripe_checkout.handle_webhook(body, signature)
+        
+        # Update transaction based on webhook event
+        if webhook_response.session_id:
+            payment_transactions_collection.update_one(
+                {"session_id": webhook_response.session_id},
+                {"$set": {
+                    "payment_status": webhook_response.payment_status,
+                    "event_type": webhook_response.event_type,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+        
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/subscriptions/workspace/{workspace_id}")
+async def get_workspace_subscription(
+    workspace_id: str,
+    current_user: dict = Depends(get_current_user_flexible)
+):
+    """Get active subscription for workspace"""
+    subscription = subscriptions_collection.find_one(
+        {"workspace_id": workspace_id, "status": "active"},
+        {"_id": 0}
+    )
+    if not subscription:
+        return {"status": "none", "message": "No active subscription"}
+    return subscription
+
+# ============================================
+# PHASE 5: COMPANY PROFILE MANAGEMENT
+# ============================================
+
+class CompanyProfileModel(BaseModel):
+    company_name: str
+    website: Optional[str] = None
+    industry: Optional[str] = None
+    description: Optional[str] = None
+
+@app.post("/api/companies")
+async def create_company_profile(
+    profile: CompanyProfileModel,
+    current_user: dict = Depends(get_current_user_flexible)
+):
+    """Create company profile"""
+    company_id = str(uuid.uuid4())
+    company = {
+        "company_id": company_id,
+        "workspace_id": current_user.get("workspace_id"),
+        "company_name": profile.company_name,
+        "website": profile.website,
+        "industry": profile.industry,
+        "description": profile.description,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    companies_collection.insert_one(company)
+    return {"company_id": company_id, "message": "Company profile created"}
+
+@app.get("/api/companies/workspace/{workspace_id}")
+async def get_company_profile(
+    workspace_id: str,
+    current_user: dict = Depends(get_current_user_flexible)
+):
+    """Get company profile for workspace"""
+    company = companies_collection.find_one({"workspace_id": workspace_id}, {"_id": 0})
+    if not company:
+        return {"status": "none", "message": "No company profile found"}
+    return company
+
+class SocialMediaModel(BaseModel):
+    platform: str
+    url: str
+    followers: Optional[int] = 0
+
+@app.post("/api/social-profiles")
+async def add_social_profile(
+    profile: SocialMediaModel,
+    current_user: dict = Depends(get_current_user_flexible)
+):
+    """Add social media profile"""
+    profile_id = str(uuid.uuid4())
+    social_profile = {
+        "profile_id": profile_id,
+        "workspace_id": current_user.get("workspace_id"),
+        "platform": profile.platform,
+        "url": profile.url,
+        "followers": profile.followers,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    social_profiles_collection.insert_one(social_profile)
+    return {"profile_id": profile_id, "message": "Social profile added"}
+
+@app.get("/api/social-profiles/workspace/{workspace_id}")
+async def get_social_profiles(
+    workspace_id: str,
+    current_user: dict = Depends(get_current_user_flexible)
+):
+    """Get all social profiles for workspace"""
+    profiles = list(social_profiles_collection.find({"workspace_id": workspace_id}, {"_id": 0}))
+    return profiles
+
+# ============================================
+# PHASE 6: MARKETING METRICS DASHBOARD
+# ============================================
+
+class MetricModel(BaseModel):
+    metric_type: str
+    value: float
+    date: str
+    notes: Optional[str] = None
+
+@app.post("/api/metrics")
+async def add_metric(
+    metric: MetricModel,
+    current_user: dict = Depends(get_current_user_flexible)
+):
+    """Add marketing metric"""
+    metric_id = str(uuid.uuid4())
+    metric_data = {
+        "metric_id": metric_id,
+        "workspace_id": current_user.get("workspace_id"),
+        "metric_type": metric.metric_type,
+        "value": metric.value,
+        "date": metric.date,
+        "notes": metric.notes,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    metrics_collection.insert_one(metric_data)
+    return {"metric_id": metric_id, "message": "Metric added"}
+
+@app.get("/api/metrics/workspace/{workspace_id}")
+async def get_metrics(
+    workspace_id: str,
+    metric_type: Optional[str] = None,
+    current_user: dict = Depends(get_current_user_flexible)
+):
+    """Get metrics for workspace"""
+    query = {"workspace_id": workspace_id}
+    if metric_type:
+        query["metric_type"] = metric_type
+    metrics = list(metrics_collection.find(query, {"_id": 0}).sort("date", -1).limit(100))
+    return metrics
+
+# ============================================
+# PHASE 8: TASK MANAGEMENT
+# ============================================
+
+class TaskCreateModel(BaseModel):
+    title: str
+    description: Optional[str] = None
+    assigned_to: Optional[str] = None
+    priority: str = "medium"
+    due_date: Optional[str] = None
+    status: str = "todo"
+
+@app.post("/api/tasks")
+async def create_task(
+    task: TaskCreateModel,
+    current_user: dict = Depends(get_current_user_flexible)
+):
+    """Create a new task"""
+    task_id = str(uuid.uuid4())
+    task_data = {
+        "task_id": task_id,
+        "workspace_id": current_user.get("workspace_id"),
+        "title": task.title,
+        "description": task.description,
+        "assigned_to": task.assigned_to,
+        "created_by": current_user["user_id"],
+        "priority": task.priority,
+        "due_date": task.due_date,
+        "status": task.status,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    tasks_collection.insert_one(task_data)
+    return {"task_id": task_id, "message": "Task created"}
+
+@app.get("/api/tasks/workspace/{workspace_id}")
+async def get_tasks(
+    workspace_id: str,
+    status: Optional[str] = None,
+    current_user: dict = Depends(get_current_user_flexible)
+):
+    """Get tasks for workspace"""
+    query = {"workspace_id": workspace_id}
+    if status:
+        query["status"] = status
+    tasks = list(tasks_collection.find(query, {"_id": 0}).sort("created_at", -1))
+    
+    # Enrich with user data
+    for task in tasks:
+        if task.get("assigned_to"):
+            assignee = users_collection.find_one({"user_id": task["assigned_to"]}, {"_id": 0, "password": 0})
+            if assignee:
+                task["assignee"] = assignee
+    
+    return tasks
+
+@app.put("/api/tasks/{task_id}")
+async def update_task(
+    task_id: str,
+    update_data: dict,
+    current_user: dict = Depends(get_current_user_flexible)
+):
+    """Update task"""
+    tasks_collection.update_one(
+        {"task_id": task_id},
+        {"$set": {**update_data, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"message": "Task updated"}
+
+# ============================================
+# PHASE 10: STRATEGY CREATOR
+# ============================================
+
+class StrategyModel(BaseModel):
+    title: str
+    description: str
+    goals: Optional[List[str]] = []
+    tactics: Optional[List[str]] = []
+
+@app.post("/api/strategies")
+async def create_strategy(
+    strategy: StrategyModel,
+    current_user: dict = Depends(get_current_user_flexible)
+):
+    """Create marketing strategy"""
+    strategy_id = str(uuid.uuid4())
+    strategy_data = {
+        "strategy_id": strategy_id,
+        "workspace_id": current_user.get("workspace_id"),
+        "title": strategy.title,
+        "description": strategy.description,
+        "goals": strategy.goals,
+        "tactics": strategy.tactics,
+        "created_by": current_user["user_id"],
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    strategies_collection.insert_one(strategy_data)
+    return {"strategy_id": strategy_id, "message": "Strategy created"}
+
+@app.get("/api/strategies/workspace/{workspace_id}")
+async def get_strategies(
+    workspace_id: str,
+    current_user: dict = Depends(get_current_user_flexible)
+):
+    """Get strategies for workspace"""
+    strategies = list(strategies_collection.find({"workspace_id": workspace_id}, {"_id": 0}).sort("created_at", -1))
+    return strategies
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
