@@ -450,7 +450,6 @@ function RegisterPage() {
 // Dashboard Page
 function DashboardPage() {
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-gray-50">
