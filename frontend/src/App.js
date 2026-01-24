@@ -33,7 +33,6 @@ function AuthProvider({ children }) {
 
   const checkAuth = async () => {
     // Check for JWT token or session cookie
-    const token = localStorage.getItem('token');
     try {
       const response = await api.get('/api/auth/me');
       setUser(response.data);
