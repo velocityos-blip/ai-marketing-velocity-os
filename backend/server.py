@@ -1054,6 +1054,221 @@ async def get_strategies(
     strategies = list(strategies_collection.find({"workspace_id": workspace_id}, {"_id": 0}).sort("created_at", -1))
     return strategies
 
+# ============================================
+# PHASE 7 & 11: AI-POWERED FEATURES
+# ============================================
+
+from emergentintegrations.llm.chat import LlmChat, UserMessage
+
+EMERGENT_LLM_KEY = os.getenv("EMERGENT_LLM_KEY")
+
+class AIAssessmentRequest(BaseModel):
+    company_name: str
+    industry: Optional[str] = None
+    current_metrics: Optional[dict] = None
+
+@app.post("/api/ai/assessment")
+async def generate_ai_assessment(
+    request: AIAssessmentRequest,
+    current_user: dict = Depends(get_current_user_flexible)
+):
+    """Generate AI-powered marketing health assessment"""
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY,
+        session_id=f"assessment_{current_user['user_id']}",
+        system_message="You are a marketing expert who provides actionable insights and recommendations."
+    ).with_model("openai", "gpt-5.2")
+    
+    prompt = f"""Analyze the marketing health for {request.company_name} in the {request.industry or 'general'} industry.
+    
+Current metrics: {request.current_metrics or 'No metrics provided yet'}
+
+Provide:
+1. Overall marketing health score (0-100)
+2. Top 3 strengths
+3. Top 3 areas for improvement
+4. 5 specific actionable recommendations
+
+Format your response as JSON with keys: score, strengths, improvements, recommendations"""
+    
+    user_message = UserMessage(text=prompt)
+    response = await chat.send_message(user_message)
+    
+    # Save assessment
+    assessment_id = str(uuid.uuid4())
+    assessment = {
+        "assessment_id": assessment_id,
+        "workspace_id": current_user.get("workspace_id"),
+        "company_name": request.company_name,
+        "ai_response": response,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    assessments_collection.insert_one(assessment)
+    
+    return {"assessment_id": assessment_id, "response": response}
+
+class CopywriterRequestModel(BaseModel):
+    content_type: str  # blog, social_media, email, ad_copy
+    topic: str
+    tone: str = "professional"
+    length: str = "medium"
+
+@app.post("/api/ai/copywriter")
+async def generate_copy(
+    request: CopywriterRequestModel,
+    current_user: dict = Depends(get_current_user_flexible)
+):
+    """AI copywriting tool"""
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY,
+        session_id=f"copy_{current_user['user_id']}",
+        system_message="You are an expert copywriter who creates engaging, conversion-focused content."
+    ).with_model("openai", "gpt-5.2")
+    
+    length_guide = {"short": "100-150 words", "medium": "300-500 words", "long": "800-1200 words"}
+    
+    prompt = f"""Create {request.content_type} content about: {request.topic}
+
+Tone: {request.tone}
+Length: {length_guide.get(request.length, '300-500 words')}
+
+Make it engaging, actionable, and optimized for {request.content_type}."""
+    
+    user_message = UserMessage(text=prompt)
+    response = await chat.send_message(user_message)
+    
+    return {"content": response}
+
+class AdCreatorRequestModel(BaseModel):
+    product_name: str
+    target_audience: str
+    platform: str
+    goal: str = "conversion"
+
+@app.post("/api/ai/ad-creator")
+async def create_ad(
+    request: AdCreatorRequestModel,
+    current_user: dict = Depends(get_current_user_flexible)
+):
+    """AI ad creation tool"""
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY,
+        session_id=f"ad_{current_user['user_id']}",
+        system_message="You are an advertising expert who creates compelling ad copy."
+    ).with_model("openai", "gpt-5.2")
+    
+    prompt = f"""Create an ad for {request.product_name} targeting {request.target_audience} on {request.platform}.
+
+Goal: {request.goal}
+
+Provide:
+1. Headline (attention-grabbing)
+2. Body copy (compelling and clear)
+3. Call-to-action (strong and specific)
+4. Key messaging points
+
+Format as JSON with keys: headline, body, cta, messaging_points"""
+    
+    user_message = UserMessage(text=prompt)
+    response = await chat.send_message(user_message)
+    
+    return {"ad": response}
+
+class TaskGeneratorRequest(BaseModel):
+    strategy_id: str
+
+@app.post("/api/ai/generate-tasks")
+async def generate_tasks_from_strategy(
+    request: TaskGeneratorRequest,
+    current_user: dict = Depends(get_current_user_flexible)
+):
+    """AI task generator from strategy"""
+    # Get strategy
+    strategy = strategies_collection.find_one({"strategy_id": request.strategy_id}, {"_id": 0})
+    if not strategy:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+    
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY,
+        session_id=f"tasks_{current_user['user_id']}",
+        system_message="You are a project manager who breaks down strategies into actionable tasks."
+    ).with_model("openai", "gpt-5.2")
+    
+    prompt = f"""Based on this marketing strategy, generate 5-10 specific, actionable tasks:
+
+Strategy: {strategy.get('title')}
+Description: {strategy.get('description')}
+Goals: {strategy.get('goals', [])}
+
+For each task provide:
+- Title (clear and specific)
+- Description (what needs to be done)
+- Priority (high/medium/low)
+- Estimated timeline
+
+Format as JSON array with keys: title, description, priority, timeline"""
+    
+    user_message = UserMessage(text=prompt)
+    response = await chat.send_message(user_message)
+    
+    # Optionally auto-create tasks
+    # Parse response and create tasks in database
+    
+    return {"tasks": response}
+
+class StrategyGeneratorRequest(BaseModel):
+    company_name: str
+    industry: str
+    goals: List[str]
+    budget: Optional[str] = None
+
+@app.post("/api/ai/generate-strategy")
+async def generate_strategy(
+    request: StrategyGeneratorRequest,
+    current_user: dict = Depends(get_current_user_flexible)
+):
+    """AI strategy generator"""
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY,
+        session_id=f"strategy_{current_user['user_id']}",
+        system_message="You are a marketing strategist who creates comprehensive marketing plans."
+    ).with_model("openai", "gpt-5.2")
+    
+    prompt = f"""Create a comprehensive marketing strategy for {request.company_name} in the {request.industry} industry.
+
+Goals: {', '.join(request.goals)}
+Budget: {request.budget or 'Flexible'}
+
+Provide a detailed strategy including:
+1. Executive Summary
+2. Target Audience Analysis
+3. Channel Strategy (which platforms and why)
+4. Content Strategy
+5. Key Tactics (specific actions)
+6. Success Metrics
+7. Timeline (monthly breakdown)
+
+Make it actionable and specific."""
+    
+    user_message = UserMessage(text=prompt)
+    response = await chat.send_message(user_message)
+    
+    # Save as strategy
+    strategy_id = str(uuid.uuid4())
+    strategy = {
+        "strategy_id": strategy_id,
+        "workspace_id": current_user.get("workspace_id"),
+        "title": f"AI-Generated Strategy for {request.company_name}",
+        "description": response,
+        "goals": request.goals,
+        "created_by": current_user["user_id"],
+        "ai_generated": True,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    strategies_collection.insert_one(strategy)
+    
+    return {"strategy_id": strategy_id, "strategy": response}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
