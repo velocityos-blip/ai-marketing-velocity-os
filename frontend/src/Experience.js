@@ -18,11 +18,11 @@ export function Home({user}){
     <p className="kicker">Open-source marketing automation</p><h1>Your marketing team<br/><em>on autopilot.</em></h1>
     <p className="lede">Tell us what you sell, who you serve, and what you want to achieve. Four agents turn that brief into a campaign and keep it running on your schedule.</p>
     <div className="actions"><Link className="vprimary" to="/register">Set up my workspace <span>→</span></Link><a href={repository}>Explore the source ↗</a></div></div>
-    <aside className="flight"><div className="flighthead"><span>Campaign workflow</span><span className="signal">Weekly example</span></div>
+    <aside className="flight"><div className="orbitfield" aria-hidden="true"><i/><i/><i/><b>V</b></div><div className="flighthead"><span>Campaign workflow</span><span className="signal">Weekly example</span></div>
     <div className="briefsample"><small>COMPANY BRIEF</small><strong>Book demos for a florist inventory app</strong></div>
     <ol>{roles.map(([name,stage],i)=><li key={name}><b>{String(i+1).padStart(2,'0')}</b><strong>{name}</strong><span>{stage}</span></li>)}</ol>
     <div className="flightfoot">Output <strong>Organic campaign + social post</strong></div></aside></div>
-    <section className="vsteps"><div><h2>One company brief</h2><p>Save your audience, offer, goal, and budget once.</p></div><div><h2>A team that follows through</h2><p>Your agents work in the background, even after you close the dashboard.</p></div><div><h2>Your publishing rules</h2><p>Keep drafts private or let reviewed posts go to your connected Mastodon account.</p></div></section></main><Footer/></div>
+    <section className="vsteps"><div><h2>One company brief</h2><p>Save your audience, offer, goal, and budget once.</p></div><div><h2>A team that follows through</h2><p>Your agents work in the background, even after you close the dashboard.</p></div><div><h2>Your publishing rules</h2><p>Choose which company accounts receive reviewed campaigns and track post performance from your workspace.</p></div></section></main><Footer/></div>
 }
 function Footer(){return <footer className="vfoot"><span>Velocity OS</span><a href={repository}>Source code on GitHub ↗</a></footer>}
 export function Account({mode,auth,basePath}){

@@ -51,7 +51,7 @@ def account(d):
     return email,salt+':'+password(pw,salt)
 def admin(u):
     if u['role']!='admin': raise Problem('Company admin required.',403)
-def action(c,path,d,u,ip,*,scheduled=False,previous="",schedule_version=None):
+def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_version=None):
     if path in ('signup','login'):
         now=int(time.time())
         with c:
@@ -97,6 +97,8 @@ def action(c,path,d,u,ip,*,scheduled=False,previous="",schedule_version=None):
         budget=d.get('budget')
         if type(budget) is not int or not 0<=budget<=100000000: raise Problem('Budget must be a nonnegative whole USD amount.')
         brief.update(budget=budget,company=u['name'],channel='Organic social')
+        if scheduled and feedback:
+            brief['measured_prior_posts'] = [{k:row[k] for k in ('network','draft','metrics','created')} for row in feedback]
         with c:
             c.execute('begin immediate')
             used=c.execute("select count(*) from runs where org=? and created>=date('now','start of month')",(oid,)).fetchone()[0]

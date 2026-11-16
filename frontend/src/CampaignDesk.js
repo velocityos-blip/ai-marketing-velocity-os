@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import SocialChannels,{Results} from './SocialChannels';
 const stamp=t=>new Date(t*1000).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});
 export default function CampaignDesk({api}){
  const [ws,setWs]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[editing,setEditing]=useState(false);
@@ -17,14 +18,16 @@ export default function CampaignDesk({api}){
  {ws.social&&<label className="check"><input type="checkbox" name="autopublish" defaultChecked={profile?.destination===ws.social}/> Automatically publish posts cleared by the Analyst to @{ws.social}</label>}
  <small>The first campaign starts immediately. Your budget guides planning; this workflow uses organic social.</small>
  <div className="actions"><button className="vprimary" disabled={busy}>{profile?.enabled?'Save changes':'Start automation'} →</button>{editing&&<button type="button" onClick={()=>setEditing(false)}>Cancel</button>}</div></form>:
- profile?<><h3>{profile.brief.goal}</h3><p>{profile.brief.offer} · {profile.brief.audience}</p><dl><dt>Frequency</dt><dd>{profile.cadence==='weekly'?'Weekly':'One campaign'}</dd><dt>Budget</dt><dd>USD {profile.brief.budget}</dd><dt>Delivery</dt><dd>{profile.destination?'Auto-publish to @'+profile.destination:'Save drafts'}</dd></dl>{admin&&<div className="actions"><button className="vquiet" onClick={()=>setEditing(true)}>{profile.enabled?'Edit brief':'Resume automation'}</button>{!!profile.enabled&&<button disabled={busy} onClick={()=>act('pause',{})}>Pause</button>}</div>}</>:<p>A company admin can activate automation here.</p>}
+ profile?<><h3>{profile.brief.goal}</h3><p>{profile.brief.offer} · {profile.brief.audience}</p><dl><dt>Frequency</dt><dd>{profile.cadence==='weekly'?'Weekly':'One campaign'}</dd><dt>Budget</dt><dd>USD {profile.brief.budget}</dd><dt>Delivery</dt><dd>{profile.destination?'Auto-publish to @'+profile.destination:ws.channels?.some(c=>c.label)?'Connected channels':'Save drafts'}</dd></dl>{admin&&<div className="actions"><button className="vquiet" onClick={()=>setEditing(true)}>{profile.enabled?'Edit brief':'Resume automation'}</button>{!!profile.enabled&&<button disabled={busy} onClick={()=>act('pause',{})}>Pause</button>}</div>}</>:<p>A company admin can activate automation here.</p>}
  </section><aside className="panel control"><h2>Automation status</h2><p aria-live="polite">{profile?.note||'Waiting for the company brief.'}</p>
  <dl><dt>Next campaign</dt><dd>{profile?.due?stamp(profile.due):'None scheduled'}</dd><dt>Runs this month</dt><dd>{ws.used} / {ws.limit}</dd></dl>
  {admin&&<details><summary>Publishing connection</summary><p>{ws.social?'Connected to @'+ws.social:'Connect Mastodon to enable automatic publishing. You can also keep drafts private.'}</p><form className="vform" onSubmit={e=>{e.preventDefault();const f=e.currentTarget;act('connect',{token:f.elements.token.value},()=>f.reset())}}><label>Mastodon.social token<input name="token" type="password" required autoComplete="off"/></label><button className="vquiet" disabled={busy}>Connect account</button></form>{ws.social&&<button onClick={()=>act('disconnect',{})} disabled={busy}>Disconnect</button>}</details>}</aside></div>
+ <SocialChannels api={api} ws={ws} load={load}/>
  <h2 className="feedtitle">Campaign activity</h2>{!ws.runs.length&&<p className="empty">Your agents’ work will appear here as each handoff finishes.</p>}
  {ws.runs.map(r=><article className="panel run" key={r.id}><div className="runhead"><small>Campaign {r.id} · {r.created} UTC</small><span className="tag">{r.status}</span></div><h3>{r.brief.goal}</h3>
  {r.draft&&<blockquote>{r.draft}</blockquote>}<details><summary>Agent handoffs ({r.messages.length}/4)</summary>{r.messages.map(m=><div className="handoff" key={m.role}><strong>{m.role}</strong><small>{m.model}</small><p>{m.body}</p></div>)}</details>
  {admin&&r.status==='review'&&<details><summary>Edit and approve manually</summary><form className="vform" onSubmit={e=>{e.preventDefault();act('approve',{id:r.id,draft:e.currentTarget.elements.copy.value})}}><label>Post<textarea name="copy" defaultValue={r.draft} maxLength={500} required/></label><button disabled={busy} className="vquiet">Approve post</button></form></details>}
  {admin&&r.status==='approved'&&ws.social&&<button className="vquiet" disabled={busy} onClick={()=>act('publish',{id:r.id,social:ws.social})}>Publish to @{ws.social}</button>}
+ <Results deliveries={ws.deliveries} id={r.id}/>
  {r.receipt&&<p>Published at {r.receipt}</p>}</article>)}</>
 }

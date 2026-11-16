@@ -1,0 +1,5 @@
+services:
+  api:
+    env_file:
+      - path: /etc/vos/social.env
+        required: false
