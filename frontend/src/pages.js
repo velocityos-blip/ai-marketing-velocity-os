@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL;
+const API_URL = process.env.REACT_APP_BACKEND_URL || process.env.PUBLIC_URL || '';
 
 // Helper function for API calls
 const apiCall = async (endpoint, options = {}) => {
@@ -40,7 +40,7 @@ export function SubscriptionPage({ user, onLogout }) {
         body: JSON.stringify({
           package_id: packageId,
           user_count: 5,
-          origin_url: window.location.origin,
+          origin_url: window.location.origin + (process.env.PUBLIC_URL || ''),
         }),
       });
       window.location.href = response.url;

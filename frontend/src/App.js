@@ -2,9 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { SubscriptionPage, AIToolsPage, TasksPage } from './pages';
+import CampaignDesk from './CampaignDesk';
 import './App.css';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL;
+const basePath = process.env.PUBLIC_URL || '';
+const API_URL = process.env.REACT_APP_BACKEND_URL || basePath;
 
 // API Helper
 const api = axios.create({
@@ -136,7 +138,7 @@ function AuthCallback() {
         setUserData(response.data);
 
         // Clear fragment and redirect to dashboard
-        window.history.replaceState(null, '', '/dashboard');
+        window.history.replaceState(null, '', basePath + '/dashboard');
         navigate('/dashboard', { replace: true, state: { user: response.data } });
       } catch (error) {
         console.error('OAuth session error:', error);
@@ -336,7 +338,7 @@ function LoginPage() {
 
   const handleGoogleLogin = () => {
     // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-    const redirectUrl = window.location.origin + '/dashboard';
+    const redirectUrl = window.location.origin + basePath + '/dashboard';
     window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
   };
 
@@ -455,7 +457,7 @@ function RegisterPage() {
 
   const handleGoogleSignup = () => {
     // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-    const redirectUrl = window.location.origin + '/dashboard';
+    const redirectUrl = window.location.origin + basePath + '/dashboard';
     window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
   };
 
@@ -604,12 +606,10 @@ function DashboardPage() {
       <div className="container mx-auto px-6 py-8" data-testid="dashboard-content">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Dashboard</h1>
 
+        <CampaignDesk api={api} />
+
         {/* Quick Stats */}
         <div className="grid md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-xl shadow-md" data-testid="stat-campaigns">
-            <div className="text-gray-600 text-sm mb-2">Active Campaigns</div>
-            <div className="text-3xl font-bold text-gray-900">0</div>
-          </div>
           <div className="bg-white p-6 rounded-xl shadow-md" data-testid="stat-tasks">
             <div className="text-gray-600 text-sm mb-2">Open Tasks</div>
             <div className="text-3xl font-bold text-gray-900">0</div>
@@ -999,7 +999,7 @@ function TeamPage() {
 function App() {
   return (
     <AuthProvider>
-      <Router>
+      <Router basename={basePath || "/"}>
         <AppRoutes />
       </Router>
     </AuthProvider>
@@ -1007,64 +1007,6 @@ function App() {
 }
 
 // Routes component that can use hooks
-function AppRoutes() {
-  const location = useLocation();
-
-  // Check for session_id in URL fragment (synchronously during render to prevent race conditions)
-  if (location.hash?.includes('session_id=')) {
-    return <AuthCallback />;
-  }
-
-  return (
-    <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <DashboardPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/team"
-        element={
-          <ProtectedRoute>
-            <TeamPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/subscription"
-        element={
-          <ProtectedRoute>
-            <SubscriptionPage user={user} onLogout={logout} />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/ai-tools"
-        element={
-          <ProtectedRoute>
-            <AIToolsPage user={user} onLogout={logout} />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/tasks"
-        element={
-          <ProtectedRoute>
-            <TasksPage user={user} onLogout={logout} />
-          </ProtectedRoute>
-        }
-      />
-      <Route path="*" element={<Navigate to="/" />} />
-    </Routes>
-  );
-}
-
 function AppRoutes() {
   const location = useLocation();
   const { user, logout } = useAuth();

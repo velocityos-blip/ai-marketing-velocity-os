@@ -6,7 +6,6 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta, timezone
 from pymongo import MongoClient
 from passlib.context import CryptContext
-from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest
 import jwt
 import os
 from dotenv import load_dotenv
@@ -102,7 +101,7 @@ def decode_token(token: str) -> dict:
         return payload
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
-    except jwt.JWTError:
+    except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
@@ -267,6 +266,7 @@ async def get_me(current_user: dict = Depends(get_current_user_flexible)):
     return {
         **current_user,
         "workspace": workspace,
+        "workspace_id": workspace["workspace_id"] if workspace else None,
         "role": team_member["role"] if team_member else None
     }
 
@@ -705,6 +705,7 @@ async def create_checkout_session(
     # Initialize Stripe
     host_url = str(request.base_url)
     webhook_url = f"{host_url}api/webhook/stripe"
+    from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionRequest
     stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
     
     # Create checkout session
@@ -751,6 +752,7 @@ async def get_payment_status(
     # Initialize Stripe
     host_url = str(request.base_url)
     webhook_url = f"{host_url}api/webhook/stripe"
+    from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionRequest
     stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
     
     # Get checkout status from Stripe
@@ -799,6 +801,7 @@ async def stripe_webhook(request: Request):
     # Initialize Stripe
     host_url = str(request.base_url)
     webhook_url = f"{host_url}api/webhook/stripe"
+    from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionRequest
     stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
     
     try:
@@ -1058,7 +1061,6 @@ async def get_strategies(
 # PHASE 7 & 11: AI-POWERED FEATURES
 # ============================================
 
-from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 EMERGENT_LLM_KEY = os.getenv("EMERGENT_LLM_KEY")
 
@@ -1073,6 +1075,7 @@ async def generate_ai_assessment(
     current_user: dict = Depends(get_current_user_flexible)
 ):
     """Generate AI-powered marketing health assessment"""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
     chat = LlmChat(
         api_key=EMERGENT_LLM_KEY,
         session_id=f"assessment_{current_user['user_id']}",
@@ -1119,6 +1122,7 @@ async def generate_copy(
     current_user: dict = Depends(get_current_user_flexible)
 ):
     """AI copywriting tool"""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
     chat = LlmChat(
         api_key=EMERGENT_LLM_KEY,
         session_id=f"copy_{current_user['user_id']}",
@@ -1151,6 +1155,7 @@ async def create_ad(
     current_user: dict = Depends(get_current_user_flexible)
 ):
     """AI ad creation tool"""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
     chat = LlmChat(
         api_key=EMERGENT_LLM_KEY,
         session_id=f"ad_{current_user['user_id']}",
@@ -1188,6 +1193,7 @@ async def generate_tasks_from_strategy(
     if not strategy:
         raise HTTPException(status_code=404, detail="Strategy not found")
     
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
     chat = LlmChat(
         api_key=EMERGENT_LLM_KEY,
         session_id=f"tasks_{current_user['user_id']}",
@@ -1228,6 +1234,7 @@ async def generate_strategy(
     current_user: dict = Depends(get_current_user_flexible)
 ):
     """AI strategy generator"""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
     chat = LlmChat(
         api_key=EMERGENT_LLM_KEY,
         session_id=f"strategy_{current_user['user_id']}",
@@ -1272,3 +1279,8 @@ Make it actionable and specific."""
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
+
+
+from campaign_routes import register_campaign_routes
+
+register_campaign_routes(app, get_current_user_flexible, team_members_collection, workspaces_collection)

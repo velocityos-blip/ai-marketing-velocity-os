@@ -6,7 +6,10 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError
-from agents import generate, request, ROLES
+if __package__:
+    from .agents import generate, request, ROLES
+else:
+    from agents import generate, request, ROLES
 
 ROOT = Path(__file__).resolve().parent
 DATA = Path(os.getenv('VOS_DATA', ROOT/'private'))
