@@ -4,6 +4,7 @@ from importlib import import_module
 from pathlib import Path
 import sys
 
+from autopilot import Autopilot
 from fastapi import Depends, HTTPException, Request
 
 # The agent package is shared with the self-hosted edition in this repository.
@@ -30,11 +31,16 @@ def company_context(connection, workspace, member, email):
 
 
 def register_campaign_routes(app, current_user, members, workspaces):
+    pilot = Autopilot(engine)
+    app.on_event("shutdown")(pilot.close)
+
     @app.on_event("startup")
     def prepare():
         engine.init()
         with closing(engine.db()) as connection, connection:
             connection.execute("create table if not exists vos_workspace(workspace_id text primary key, org integer unique references org)")
+
+        pilot.start()
 
     def identity(user=Depends(current_user)):
         member = members.find_one({"user_id": user["user_id"]})
@@ -49,17 +55,28 @@ def register_campaign_routes(app, current_user, members, workspaces):
     @app.get("/api/campaign-agents")
     def dashboard(company=Depends(identity)):
         with closing(engine.db()) as connection:
-            return engine.state(connection, company)
+            return {**engine.state(connection, company), "autopilot":pilot.state(connection, company["org"])}
 
     @app.post("/api/campaign-agents/{operation}")
     def campaign_action(operation: str, payload: dict, request: Request, company=Depends(identity)):
-        if operation not in ACTIONS:
+        if operation not in ACTIONS | {"configure", "pause"}:
             raise HTTPException(404, "Unknown campaign action.")
         if request.headers.get("X-VOS-Client") != "dashboard":
             raise HTTPException(403, "Open the campaign in your VOS dashboard.")
         with closing(engine.db()) as connection:
             try:
+                if operation == "configure":
+                    pilot.configure(connection, company, payload)
+                    return {"ok": True}
+                if operation == "pause":
+                    engine.admin(company)
+                    with connection:
+                        connection.execute("UPDATE autopilot SET enabled=0,due=NULL,version=version+1,note='Paused.' WHERE org=?", (company["org"],))
+                    return {"ok": True}
                 result, _ = engine.action(connection, operation, payload, company, "")
+                if operation in ("connect", "disconnect"):
+                    with connection:
+                        connection.execute("UPDATE autopilot SET destination=NULL,version=version+1 WHERE org=?", (company["org"],))
                 return result
             except engine.Problem as error:
                 raise HTTPException(error.status, str(error)) from error

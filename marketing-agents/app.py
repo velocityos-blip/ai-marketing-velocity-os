@@ -51,7 +51,7 @@ def account(d):
     return email,salt+':'+password(pw,salt)
 def admin(u):
     if u['role']!='admin': raise Problem('Company admin required.',403)
-def action(c,path,d,u,ip):
+def action(c,path,d,u,ip,*,scheduled=False,previous="",schedule_version=None):
     if path in ('signup','login'):
         now=int(time.time())
         with c:
@@ -102,6 +102,9 @@ def action(c,path,d,u,ip):
             used=c.execute("select count(*) from runs where org=? and created>=date('now','start of month')",(oid,)).fetchone()[0]
             if used>=LIMITS[u['tier']]: raise Problem('Monthly run allowance reached.',429)
             rid=c.execute("insert into runs(org,brief,status) values(?,?,'working')",(oid,json.dumps(brief))).lastrowid
+        if scheduled:
+            brief['automated_review'] = True
+            if previous: brief['previous_post_to_avoid_repeating'] = previous
         history=[]
         try:
             for role in ROLES:
@@ -112,6 +115,7 @@ def action(c,path,d,u,ip):
         except Exception:
             with c: c.execute("update runs set status='failed' where id=?",(rid,))
             raise Problem('Agent run stopped. Check provider settings; completed handoffs are saved.',502)
+        return {'ok':True,'id':rid},None
     elif path in ('approve','publish'):
         admin(u); rid=d.get('id')
         with c:
@@ -123,6 +127,8 @@ def action(c,path,d,u,ip):
                 c.execute("update runs set draft=?,status='approved' where id=?",(field(d,'draft',500),rid))
             else:
                 if row['status']!='approved': raise Problem('An approved, unpublished draft is required.',409)
+                if schedule_version is not None and not c.execute("select 1 from autopilot where org=? and version=? and enabled=1 and destination=?",(oid,schedule_version,d.get('social'))).fetchone():
+                    raise Problem('Automatic publishing settings changed.',409)
                 channel=c.execute('select token,social from org where id=?',(oid,)).fetchone()
                 if not channel['token'] or channel['social']!=d.get('social'): raise Problem('Check the destination and try again.',409)
                 c.execute("update runs set status='publishing' where id=?",(rid,))
