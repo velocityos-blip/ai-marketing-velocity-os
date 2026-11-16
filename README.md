@@ -20,3 +20,7 @@ The [React application](frontend/src/App.js) handles routing, sign-in, the dashb
 - **Frontend:** From `frontend/`, run `npm install`, then `npm start`. Set `REACT_APP_BACKEND_URL` to the backend origin before starting the frontend.
 - **Backend:** The application entry point is `server:app` inside `backend/`. It needs MongoDB and backend configuration, including `MONGO_URL` and a private `JWT_SECRET_KEY`. AI and billing use separate provider credentials.
 - **Setup status:** The checked-in [requirements file](backend/requirements.txt) joins the AnyIO and HTTPX pins on one line and omits the imported Emergent integration package. Resolve those dependencies in your local environment before starting Uvicorn. With the dependencies and services configured, `GET /api/health` is the backend’s health route.
+
+## Self-hosted marketing agents
+
+[Run the marketing agents edition](marketing-agents/README.md) to take a company brief through CMO assessment, channel planning, copywriting, review, and approved Mastodon publishing. This standalone Python edition supports per-role model selection and a local demo that requires no API keys.
