@@ -33,6 +33,11 @@ class DashboardTests(unittest.TestCase):
                 payload = {"id":run["id"],"draft":"Approved copy"}
                 self.assertEqual(client.post(route+"/approve",headers=other,json=payload).status_code,404)
                 user = client.get("/api/auth/me",headers=owner).json()
+                tasks_url = "/api/tasks/workspace/" + user["workspace_id"]
+                task = client.post("/api/tasks", headers=owner, json={"title": "Review post"}).json()
+                self.assertEqual(client.get(tasks_url, headers=owner).json()[0]["task_id"], task["task_id"])
+                self.assertEqual(client.get(tasks_url, headers=other).status_code, 403)
+                self.assertEqual(client.put("/api/tasks/" + task["task_id"], headers=other, json={"status":"done"}).status_code, 404)
                 server.team_members_collection.update_one({"user_id":user["user_id"]},{"$set":{"role":"member"}})
                 self.assertEqual(client.post(route+"/approve",headers=owner,json=payload).status_code,403)
                 server.team_members_collection.update_one({"user_id":user["user_id"]},{"$set":{"role":"owner"}})

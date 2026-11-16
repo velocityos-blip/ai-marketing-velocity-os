@@ -683,6 +683,17 @@ def calculate_subscription_price(package_id: str, user_count: int) -> float:
     
     return base_price + additional_cost
 
+def workspace_user(request: Request, user: dict = Depends(get_current_user_flexible)):
+    """Resolve current membership for company-scoped records on each request."""
+    query = {"user_id": user["user_id"]}
+    if "workspace_id" in request.path_params:
+        query["workspace_id"] = request.path_params["workspace_id"]
+    membership = team_members_collection.find_one(query)
+    if not membership:
+        raise HTTPException(403, "Company workspace membership required.")
+    return {**user, "workspace_id": membership["workspace_id"]}
+
+
 class CheckoutRequestModel(BaseModel):
     package_id: str
     user_count: int = 5
@@ -691,7 +702,7 @@ class CheckoutRequestModel(BaseModel):
 @app.post("/api/payments/checkout")
 async def create_checkout_session(
     checkout_req: CheckoutRequestModel,
-    current_user: dict = Depends(get_current_user_flexible),
+    current_user: dict = Depends(workspace_user),
     request: Request = None
 ):
     """Create Stripe checkout session for subscription"""
@@ -745,10 +756,12 @@ async def create_checkout_session(
 @app.get("/api/payments/status/{session_id}")
 async def get_payment_status(
     session_id: str,
-    current_user: dict = Depends(get_current_user_flexible),
+    current_user: dict = Depends(workspace_user),
     request: Request = None
 ):
     """Get payment status for a checkout session"""
+    if not payment_transactions_collection.find_one({"session_id": session_id, "workspace_id": current_user["workspace_id"]}):
+        raise HTTPException(404, "Checkout session not found.")
     # Initialize Stripe
     host_url = str(request.base_url)
     webhook_url = f"{host_url}api/webhook/stripe"
@@ -825,7 +838,7 @@ async def stripe_webhook(request: Request):
 @app.get("/api/subscriptions/workspace/{workspace_id}")
 async def get_workspace_subscription(
     workspace_id: str,
-    current_user: dict = Depends(get_current_user_flexible)
+    current_user: dict = Depends(workspace_user)
 ):
     """Get active subscription for workspace"""
     subscription = subscriptions_collection.find_one(
@@ -849,7 +862,7 @@ class CompanyProfileModel(BaseModel):
 @app.post("/api/companies")
 async def create_company_profile(
     profile: CompanyProfileModel,
-    current_user: dict = Depends(get_current_user_flexible)
+    current_user: dict = Depends(workspace_user)
 ):
     """Create company profile"""
     company_id = str(uuid.uuid4())
@@ -868,7 +881,7 @@ async def create_company_profile(
 @app.get("/api/companies/workspace/{workspace_id}")
 async def get_company_profile(
     workspace_id: str,
-    current_user: dict = Depends(get_current_user_flexible)
+    current_user: dict = Depends(workspace_user)
 ):
     """Get company profile for workspace"""
     company = companies_collection.find_one({"workspace_id": workspace_id}, {"_id": 0})
@@ -884,7 +897,7 @@ class SocialMediaModel(BaseModel):
 @app.post("/api/social-profiles")
 async def add_social_profile(
     profile: SocialMediaModel,
-    current_user: dict = Depends(get_current_user_flexible)
+    current_user: dict = Depends(workspace_user)
 ):
     """Add social media profile"""
     profile_id = str(uuid.uuid4())
@@ -902,7 +915,7 @@ async def add_social_profile(
 @app.get("/api/social-profiles/workspace/{workspace_id}")
 async def get_social_profiles(
     workspace_id: str,
-    current_user: dict = Depends(get_current_user_flexible)
+    current_user: dict = Depends(workspace_user)
 ):
     """Get all social profiles for workspace"""
     profiles = list(social_profiles_collection.find({"workspace_id": workspace_id}, {"_id": 0}))
@@ -921,7 +934,7 @@ class MetricModel(BaseModel):
 @app.post("/api/metrics")
 async def add_metric(
     metric: MetricModel,
-    current_user: dict = Depends(get_current_user_flexible)
+    current_user: dict = Depends(workspace_user)
 ):
     """Add marketing metric"""
     metric_id = str(uuid.uuid4())
@@ -941,7 +954,7 @@ async def add_metric(
 async def get_metrics(
     workspace_id: str,
     metric_type: Optional[str] = None,
-    current_user: dict = Depends(get_current_user_flexible)
+    current_user: dict = Depends(workspace_user)
 ):
     """Get metrics for workspace"""
     query = {"workspace_id": workspace_id}
@@ -965,7 +978,7 @@ class TaskCreateModel(BaseModel):
 @app.post("/api/tasks")
 async def create_task(
     task: TaskCreateModel,
-    current_user: dict = Depends(get_current_user_flexible)
+    current_user: dict = Depends(workspace_user)
 ):
     """Create a new task"""
     task_id = str(uuid.uuid4())
@@ -988,7 +1001,7 @@ async def create_task(
 async def get_tasks(
     workspace_id: str,
     status: Optional[str] = None,
-    current_user: dict = Depends(get_current_user_flexible)
+    current_user: dict = Depends(workspace_user)
 ):
     """Get tasks for workspace"""
     query = {"workspace_id": workspace_id}
@@ -1009,13 +1022,17 @@ async def get_tasks(
 async def update_task(
     task_id: str,
     update_data: dict,
-    current_user: dict = Depends(get_current_user_flexible)
+    current_user: dict = Depends(workspace_user)
 ):
     """Update task"""
-    tasks_collection.update_one(
-        {"task_id": task_id},
+    if set(update_data) - set(TaskCreateModel.model_fields):
+        raise HTTPException(400, "Unknown task field.")
+    result = tasks_collection.update_one(
+        {"task_id": task_id, "workspace_id": current_user["workspace_id"]},
         {"$set": {**update_data, "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
+    if not result.matched_count:
+        raise HTTPException(404, "Task not found.")
     return {"message": "Task updated"}
 
 # ============================================
@@ -1031,7 +1048,7 @@ class StrategyModel(BaseModel):
 @app.post("/api/strategies")
 async def create_strategy(
     strategy: StrategyModel,
-    current_user: dict = Depends(get_current_user_flexible)
+    current_user: dict = Depends(workspace_user)
 ):
     """Create marketing strategy"""
     strategy_id = str(uuid.uuid4())
@@ -1051,7 +1068,7 @@ async def create_strategy(
 @app.get("/api/strategies/workspace/{workspace_id}")
 async def get_strategies(
     workspace_id: str,
-    current_user: dict = Depends(get_current_user_flexible)
+    current_user: dict = Depends(workspace_user)
 ):
     """Get strategies for workspace"""
     strategies = list(strategies_collection.find({"workspace_id": workspace_id}, {"_id": 0}).sort("created_at", -1))
@@ -1072,7 +1089,7 @@ class AIAssessmentRequest(BaseModel):
 @app.post("/api/ai/assessment")
 async def generate_ai_assessment(
     request: AIAssessmentRequest,
-    current_user: dict = Depends(get_current_user_flexible)
+    current_user: dict = Depends(workspace_user)
 ):
     """Generate AI-powered marketing health assessment"""
     from emergentintegrations.llm.chat import LlmChat, UserMessage
@@ -1119,7 +1136,7 @@ class CopywriterRequestModel(BaseModel):
 @app.post("/api/ai/copywriter")
 async def generate_copy(
     request: CopywriterRequestModel,
-    current_user: dict = Depends(get_current_user_flexible)
+    current_user: dict = Depends(workspace_user)
 ):
     """AI copywriting tool"""
     from emergentintegrations.llm.chat import LlmChat, UserMessage
@@ -1152,7 +1169,7 @@ class AdCreatorRequestModel(BaseModel):
 @app.post("/api/ai/ad-creator")
 async def create_ad(
     request: AdCreatorRequestModel,
-    current_user: dict = Depends(get_current_user_flexible)
+    current_user: dict = Depends(workspace_user)
 ):
     """AI ad creation tool"""
     from emergentintegrations.llm.chat import LlmChat, UserMessage
@@ -1185,7 +1202,7 @@ class TaskGeneratorRequest(BaseModel):
 @app.post("/api/ai/generate-tasks")
 async def generate_tasks_from_strategy(
     request: TaskGeneratorRequest,
-    current_user: dict = Depends(get_current_user_flexible)
+    current_user: dict = Depends(workspace_user)
 ):
     """AI task generator from strategy"""
     # Get strategy
@@ -1231,7 +1248,7 @@ class StrategyGeneratorRequest(BaseModel):
 @app.post("/api/ai/generate-strategy")
 async def generate_strategy(
     request: StrategyGeneratorRequest,
-    current_user: dict = Depends(get_current_user_flexible)
+    current_user: dict = Depends(workspace_user)
 ):
     """AI strategy generator"""
     from emergentintegrations.llm.chat import LlmChat, UserMessage
