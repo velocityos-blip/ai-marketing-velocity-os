@@ -7,12 +7,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError
 if __package__:
-    from .search_claims import annotate, enforce_review
+    from .search_claims import annotate, enforce_review, unsupported
     from .seo_evidence import observations
     from .playbooks import catalog, select
     from .agents import generate, request, ROLES
 else:
-    from search_claims import annotate, enforce_review
+    from search_claims import annotate, enforce_review, unsupported
     from seo_evidence import observations
     from playbooks import catalog, select
     from agents import generate, request, ROLES
@@ -130,6 +130,9 @@ def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_ve
         try:
             for role in ([catalog()[skill]['role']] if skill else ROLES):
                 model,body=generate(role,brief,history)
+                report = brief.get("website_audit", {}).get("search_console", {})
+                if role != "Analyst" and report.get("metric_basis") == "unknown" and list(unsupported(body)):
+                    model,body=generate(role,{**brief,"correct_baseline":True},history)
                 if role == "Analyst":
                     body = enforce_review(brief,history,body)
                 history.append(dict(role=role,model=model,body=body,skill=select(role,brief)['slug']))
