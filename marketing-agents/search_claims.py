@@ -2,7 +2,7 @@
 import re
 
 METRIC = r"(?:clicks?|impressions?|organic (?:search )?(?:traffic|visibility|presence)|search (?:visibility|traffic|presence)|CTR|rankings?)"
-NUMBER = r"(?:no|none|zero|[\d,]+(?:\.\d+)?%?)"
+NUMBER = r"(?:no|none|zero|\d[\d,]*(?:\.\d+)?%?)"
 CLAIM = re.compile(
     rf"\b{NUMBER}[\s-]+(?:(?:current|visible|organic|search|recorded|measured|total)\s+){{0,3}}{METRIC}\b"
     rf"|\b{METRIC}\s*(?:(?:is|was|were|are|of|at|equals?|totaled|:|=)\s*)+{NUMBER}\b"
@@ -33,7 +33,7 @@ def unsupported(text):
             suffix = sentence[match.end():]
             if re.match(r"\s+(?:target|goal|threshold|decision rule)\b",suffix,re.I):
                 continue
-            numeric = re.search(r"[\d,]+(?:\.\d+)?",match.group())
+            numeric = re.search(r"\d[\d,]*(?:\.\d+)?",match.group())
             if numeric and float(numeric.group().replace(",","")) > 0 and not OBSERVED.search(sentence):
                 continue
             yield match.group().strip()

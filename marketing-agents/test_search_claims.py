@@ -19,6 +19,8 @@ class SearchClaimsTests(unittest.TestCase):
         self.assertEqual(enforce_review(brief,[],good),good)
         self.assertTrue(enforce_review(brief,[{"role":"Digital Marketing","body":"Collect a **0-click baseline**."}],good).startswith("HOLD"))
         self.assertEqual(enforce_review(brief,[],"READY\nThe 25 clicks target is proposed."),"READY\nThe 25 clicks target is proposed.")
+        missing="READY\nMetrics such as impressions, clicks and CTR are unknown."
+        self.assertEqual(enforce_review(brief,[],missing),missing)
         measured=annotate({"search_console":{"status":"available","rows":[{"clicks":0,"impressions":12}]}})
         self.assertEqual(measured["search_console"]["metric_basis"],"returned rows")
         self.assertEqual(enforce_review({"website_audit":measured},[],"READY\nReported 0 clicks."),"READY\nReported 0 clicks.")
