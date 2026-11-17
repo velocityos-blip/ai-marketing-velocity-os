@@ -7,10 +7,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError
 if __package__:
+    from .search_claims import annotate, enforce_review
     from .seo_evidence import observations
     from .playbooks import catalog, select
     from .agents import generate, request, ROLES
 else:
+    from search_claims import annotate, enforce_review
     from seo_evidence import observations
     from playbooks import catalog, select
     from agents import generate, request, ROLES
@@ -111,7 +113,7 @@ def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_ve
                 brief['evidence_length'] = len(evidence)
                 brief['observations'] = observations(skill,evidence)
         if scheduled and seo_audit:
-            brief["website_audit"] = seo_audit
+            brief["website_audit"] = annotate(seo_audit)
         if scheduled and feedback:
             brief['measured_prior_posts'] = [{k:row[k] for k in ('network','draft','metrics','created')} for row in feedback]
         with c:
@@ -128,6 +130,8 @@ def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_ve
         try:
             for role in ([catalog()[skill]['role']] if skill else ROLES):
                 model,body=generate(role,brief,history)
+                if role == "Analyst":
+                    body = enforce_review(brief,history,body)
                 history.append(dict(role=role,model=model,body=body,skill=select(role,brief)['slug']))
                 with c: c.execute('update runs set messages=? where id=?',(json.dumps(history),rid))
             with c: c.execute("update runs set status=?,draft=? where id=?",("completed" if skill else "review",history[0 if skill else 2]['body'],rid))
