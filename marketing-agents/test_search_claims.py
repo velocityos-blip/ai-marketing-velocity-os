@@ -21,6 +21,9 @@ class SearchClaimsTests(unittest.TestCase):
         self.assertEqual(enforce_review(brief,[],"READY\nThe 25 clicks target is proposed."),"READY\nThe 25 clicks target is proposed.")
         missing="READY\nMetrics such as impressions, clicks and CTR are unknown."
         self.assertEqual(enforce_review(brief,[],missing),missing)
+        held=enforce_review(brief,[{"role":"CMO","body":"This indicates no measurable organic traffic."}],"HOLD\nUnsupported claim of zero organic impressions.")
+        self.assertIn("CMO asserted",held)
+        self.assertNotIn("Analyst asserted",held)
         measured=annotate({"search_console":{"status":"available","rows":[{"clicks":0,"impressions":12}]}})
         self.assertEqual(measured["search_console"]["metric_basis"],"returned rows")
         self.assertEqual(enforce_review({"website_audit":measured},[],"READY\nReported 0 clicks."),"READY\nReported 0 clicks.")
