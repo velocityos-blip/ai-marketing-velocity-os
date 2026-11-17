@@ -5,7 +5,7 @@ from http import HTTPStatus
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 if __package__:
     from .search_claims import annotate, channel_basis, enforce_review
     from .seo_evidence import observations
@@ -104,7 +104,17 @@ def run_team(brief, save, seed=()):
             save(history)
         record('CMO',model,strategy,select('CMO',brief)['slug'],assignments=tasks,round=revision+1)
         for task in tasks:
-            model,body = generate(task['role'],{**context,'assignment':task},current.copy())
+            candidates = [task['provider']] + [p for p in providers if p != task['provider']]
+            for provider in candidates:
+                active = {**task,'provider':provider}
+                try:
+                    model,body = generate(task['role'],{**context,'assignment':active},current.copy())
+                    break
+                except (URLError, TimeoutError, ValueError) as exc:
+                    if isinstance(exc, HTTPError) and exc.code not in (408,429,500,502,503,504):
+                        raise
+                    if provider == candidates[-1]:
+                        raise
             record(task['role'],model,body,task['skill'])
         draft = current[-1]['body']
         model,review = generate('Analyst',context,current.copy())
