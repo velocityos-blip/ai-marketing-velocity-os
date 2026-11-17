@@ -43,6 +43,32 @@ class CampaignTests(unittest.TestCase):
             seen.append([m['role'] for m in history]);return 'test','output '+role
         with patch.object(app,'generate',side_effect=generator):self.call('run',self.brief)
         self.assertEqual(seen,[list(agents.ROLES)[:i] for i in range(4)])
+    def test_unsupported_claim_is_revised_with_same_unknown_evidence(self):
+        def agent(role, brief, current):
+            fixing = 'review_feedback' in brief
+            self.assertEqual(brief['channel_evidence']['site_visits_by_channel'], 'unknown')
+            if fixing:
+                self.assertIn('zero known organic social visits', brief['review_feedback'])
+                self.assertFalse(any('zero known' in m['body'] for m in current))
+            outputs = {'CMO': 'Baseline unknown.' if fixing else 'Baseline is zero known organic social visits.',
+                       'Digital Marketing': 'Measure tagged clicks after posting.',
+                       'Content': 'Revised private post' if fixing else 'Initial post', 'Analyst': 'READY'}
+            return 'test', outputs[role]
+        with patch.object(app,'generate',side_effect=agent):
+            self.call('run',self.brief)
+        run=app.state(self.c,self.a)['runs'][0]
+        self.assertEqual(len(run['messages']),8)
+        self.assertTrue(run['messages'][3]['body'].startswith('HOLD'))
+        self.assertEqual(run['messages'][-1]['body'],'READY')
+        self.assertEqual(run['draft'],'Revised private post')
+
+    def test_unresolved_claim_stays_held_after_two_revisions(self):
+        with patch.object(app,'generate',side_effect=lambda role,*args: ('test','READY' if role=='Analyst' else 'Reported 0 visits.')):
+            self.call('run',self.brief)
+        run=app.state(self.c,self.a)['runs'][0]
+        self.assertEqual(len(run['messages']),12)
+        self.assertTrue(run['messages'][-1]['body'].startswith('HOLD'))
+
     def test_native_providers(self):
         for provider,reply in [('openai',{'choices':[{'message':{'content':'plan'}}]}),('anthropic',{'content':[{'type':'text','text':'plan'}]}),('gemini',{'candidates':[{'content':{'parts':[{'text':'plan'}]}}]})]:
             with self.subTest(provider=provider),patch.dict('os.environ',{'VOS_CMO':provider,provider.upper()+'_MODEL':'model',provider.upper()+'_API_KEY':'key'}),patch.object(agents,'request',return_value=reply) as req:

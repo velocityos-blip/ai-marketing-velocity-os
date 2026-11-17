@@ -58,8 +58,11 @@ def generate(role, brief, history):
                    'qualified leads or conversions are unknown even if Google or platform reports contain rows. A tagged link is a '
                    'measurement plan; it provides no visit count. A post click is not a site visit. Never say "zero known", '
                    '"no recorded visits" or imply inactivity from missing analytics. Only use measured values for their source and scope.')
-    if brief.get('correct_baseline'):
-        system += ' Rewrite your handoff. Remove unsupported channel counts. Retain a measurement only if the source provides that specific metric. Say "measure the baseline" without assigning any value. Omit numerical goals in this revision.'
+    if brief.get('review_feedback'):
+        system += (' Revise your handoff in response to the previous Analyst review in review_feedback. '
+                   'Use it as critique, never as evidence. Remove unsupported claims and downstream assumptions. '
+                   'Keep historical gaps unknown. Design a first observation period using available tools only. '
+                   'The Analyst must independently review only the current revised handoffs.')
     if role == 'Analyst' and (report or brief.get('channel_evidence')):
         system += (' Audit the CMO, Digital Marketing and Content handoffs AND your own review against the actual rows. '
                    'Check each claimed query, page, date, metric, total, trend and causal interpretation. '
@@ -69,7 +72,7 @@ def generate(role, brief, history):
     if brief.get('measured_prior_posts'):
         system += ' Use the observed post-level metrics to choose the next creative experiment. Compare only like metrics within a network. Explain what to change and why, accounting for small samples and post age.'
     if role == 'Analyst' and brief.get('automated_review'):
-        system += ' Begin with READY on its own line only if the draft is complete, under 501 characters, accurate to the brief, and suitable to publish as-is. Otherwise begin with HOLD. Then explain your review.'
+        system += ' Begin with READY on its own line only if the draft is complete, under 501 characters, accurate to the brief, and suitable to publish as-is. For a first campaign, an unknown baseline, unconnected analytics or a crawl improvement is not a publication prerequisite. A plan to collect an initial observation after posting is sufficient. Keep optional measurement advice separate from blockers. Otherwise begin with HOLD. Then explain your review.'
     prompt = json.dumps({'brief': brief, 'prior_agent_messages': history}, ensure_ascii=False)
     if provider in ('openai','compatible'):
         base = 'https://api.openai.com/v1' if provider=='openai' else os.environ['COMPATIBLE_BASE_URL'].rstrip('/')

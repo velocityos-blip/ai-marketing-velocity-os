@@ -7,12 +7,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError
 if __package__:
-    from .search_claims import annotate, channel_basis, enforce_review, unsupported
+    from .search_claims import annotate, channel_basis, enforce_review
     from .seo_evidence import observations
     from .playbooks import catalog, select
     from .agents import generate, request, ROLES
 else:
-    from search_claims import annotate, channel_basis, enforce_review, unsupported
+    from search_claims import annotate, channel_basis, enforce_review
     from seo_evidence import observations
     from playbooks import catalog, select
     from agents import generate, request, ROLES
@@ -57,7 +57,35 @@ def account(d):
     return email,salt+':'+password(pw,salt)
 def admin(u):
     if u['role']!='admin': raise Problem('Company admin required.',403)
-def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_version=None,skill=None,evidence="",seo_audit=None):
+def run_team(brief, save, seed=()):
+    """Keep the full review trail, but judge only the current handoffs."""
+    history = list(seed)
+    if seed:
+        save(history)
+    feedback = seed[-1]['body'] if seed else None
+    for revision in range(3):
+        current = []
+        context = {**brief, 'automated_review': True}
+        if feedback:
+            context['review_feedback'] = feedback
+        for role in ROLES:
+            model, body = generate(role, context, current.copy())
+            if role == 'Analyst':
+                body = enforce_review(brief, current, body)
+                draft = next(m['body'] for m in current if m['role'] == 'Content')
+                if not 0 < len(draft.strip()) <= 500:
+                    body = 'HOLD\nWrite a complete post of at most 500 characters.\n' + body
+            msg = dict(role=role, model=model, body=body, skill=select(role, brief)['slug'])
+            current.append(msg)
+            history.append(msg)
+            save(history)
+        verdict = body.splitlines()[0].strip()
+        if verdict != 'HOLD':
+            break
+        feedback = body
+    return draft
+
+def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_version=None,skill=None,evidence="",seo_audit=None,rerun_of=None):
     if path in ('signup','login'):
         now=int(time.time())
         with c:
@@ -118,6 +146,15 @@ def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_ve
             brief['measured_prior_posts'] = [{k:row[k] for k in ('network','draft','metrics','created')} for row in feedback]
         if not skill:
             brief['channel_evidence'] = channel_basis(brief)
+        seed = []
+        if rerun_of is not None:
+            source = c.execute("SELECT brief,messages FROM runs WHERE id=? AND org=?", (rerun_of,oid)).fetchone()
+            if not source or skill:
+                raise Problem('Held campaign required.')
+            seed = json.loads(source['messages'])[-4:]
+            if [m['role'] for m in seed] != list(ROLES) or seed[-1]['body'].splitlines()[0].strip() != 'HOLD':
+                raise Problem('Held campaign required.')
+            brief = {**json.loads(source['brief']), 'rerun_of': rerun_of}
         with c:
             c.execute('begin immediate')
             used=c.execute("select count(*) from runs where org=? and created>=date('now','start of month')",(oid,)).fetchone()[0]
@@ -128,17 +165,17 @@ def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_ve
         if scheduled:
             brief['automated_review'] = True
             if previous: brief['previous_post_to_avoid_repeating'] = previous
-        history=[]
+        def save(messages):
+            with c:
+                c.execute('update runs set messages=? where id=?',(json.dumps(messages),rid))
         try:
-            for role in ([catalog()[skill]['role']] if skill else ROLES):
-                model,body=generate(role,brief,history)
-                if not skill and role != "Analyst" and list(unsupported(body,brief)):
-                    model,body=generate(role,{**brief,"correct_baseline":True},history)
-                if not skill and role == "Analyst":
-                    body = enforce_review(brief,history,body)
-                history.append(dict(role=role,model=model,body=body,skill=select(role,brief)['slug']))
-                with c: c.execute('update runs set messages=? where id=?',(json.dumps(history),rid))
-            with c: c.execute("update runs set status=?,draft=? where id=?",("completed" if skill else "review",history[0 if skill else 2]['body'],rid))
+            if skill:
+                role = catalog()[skill]['role']
+                model, draft = generate(role,brief,[])
+                save([dict(role=role,model=model,body=draft,skill=skill)])
+            else:
+                draft = run_team(brief,save,seed)
+            with c: c.execute("update runs set status=?,draft=? where id=?",("completed" if skill else "review",draft,rid))
         except Exception:
             with c: c.execute("update runs set status='failed' where id=?",(rid,))
             raise Problem('Agent run stopped. Check provider settings; completed handoffs are saved.',502)
