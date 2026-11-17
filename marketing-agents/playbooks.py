@@ -27,6 +27,8 @@ def catalog():
 
 def select(role, brief):
     library = catalog()
+    if brief.get("assignment"):
+        return library[brief["assignment"]["skill"]]
     if brief.get("skill"):
         return library[brief["skill"]]
     text = " ".join(str(brief.get(k, "")) for k in ("goal","offer","audience")).lower()

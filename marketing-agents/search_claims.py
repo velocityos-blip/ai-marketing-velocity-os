@@ -76,7 +76,8 @@ def unsupported(text, brief=None):
 def enforce_review(brief, history, review):
     findings = []
     for msg in history:
-        claims = list(dict.fromkeys(unsupported(msg["body"], brief)))
+        text = "\n".join([msg["body"]] + [task["instruction"] for task in msg.get("assignments",[])])
+        claims = list(dict.fromkeys(unsupported(text, brief)))
         if claims:
             findings.append(msg["role"] + " asserted " + ", ".join(repr(c) for c in claims[:4]))
     # A HOLD may quote the very claim it rejects. Prefer the original offending

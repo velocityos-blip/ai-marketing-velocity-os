@@ -10,12 +10,12 @@ if __package__:
     from .search_claims import annotate, channel_basis, enforce_review
     from .seo_evidence import observations
     from .playbooks import catalog, select
-    from .agents import generate, request, ROLES
+    from .agents import generate, request, ROLES, TASKS, available_providers
 else:
     from search_claims import annotate, channel_basis, enforce_review
     from seo_evidence import observations
     from playbooks import catalog, select
-    from agents import generate, request, ROLES
+    from agents import generate, request, ROLES, TASKS, available_providers
 
 ROOT = Path(__file__).resolve().parent
 DATA = Path(os.getenv('VOS_DATA', ROOT/'private'))
@@ -57,6 +57,30 @@ def account(d):
     return email,salt+':'+password(pw,salt)
 def admin(u):
     if u['role']!='admin': raise Problem('Company admin required.',403)
+def assignments(body, providers):
+    try:
+        plan = json.loads(body.strip().removeprefix('```json').removesuffix('```').strip())
+    except ValueError:
+        plan = None
+    structured = isinstance(plan,dict) and isinstance(plan.get('tasks'),list) and isinstance(plan.get('strategy'),str)
+    proposed = plan['tasks'] if structured else []
+    requests = {}
+    for item in proposed:
+        if isinstance(item,dict) and isinstance(item.get('type'),str) and item['type'] in TASKS:
+            requests.setdefault(item['type'],item)
+    kinds = [k for k in requests if k not in ('experiment','copy')][:2] + ['experiment','copy']
+    tasks = []
+    for kind in kinds:
+        role,skill,preferred,default = TASKS[kind]
+        item = requests.get(kind,{})
+        provider = item.get('provider')
+        if provider not in providers:
+            provider = preferred if preferred in providers else next(iter(providers),'local')
+        instruction = item.get('instruction')
+        tasks.append(dict(type=kind,role=role,skill=skill,provider=provider,
+                          instruction=instruction[:600] if isinstance(instruction,str) and instruction.strip() else default))
+    return (plan['strategy'] if structured else body), tasks, structured
+
 def run_team(brief, save, seed=()):
     """Keep the full review trail, but judge only the current handoffs."""
     history = list(seed)
@@ -68,24 +92,39 @@ def run_team(brief, save, seed=()):
         context = {**brief, 'automated_review': True}
         if feedback:
             context['review_feedback'] = feedback
-        for role in ROLES:
-            model, body = generate(role, context, current.copy())
-            if role == 'Analyst':
-                body = enforce_review(brief, current, body)
-                draft = next(m['body'] for m in current if m['role'] == 'Content')
-                if not 0 < len(draft.strip()) <= 500:
-                    body = 'HOLD\nWrite a complete post of at most 500 characters.\n' + body
-            msg = dict(role=role, model=model, body=body, skill=select(role, brief)['slug'])
+        providers = available_providers()
+        planning = {**context,'cmo_planning':True,'available_providers':providers,
+                    'capabilities':{k:{'preferred':v[2],'scope':v[3]} for k,v in TASKS.items()}}
+        model, raw = generate('CMO',planning,[])
+        strategy, tasks, structured = assignments(raw,providers)
+        def record(role, model, body, skill, **extra):
+            msg = dict(role=role,model=model,body=body,skill=skill,**extra)
             current.append(msg)
             history.append(msg)
             save(history)
+        record('CMO',model,strategy,select('CMO',brief)['slug'],assignments=tasks,round=revision+1)
+        for task in tasks:
+            model,body = generate(task['role'],{**context,'assignment':task},current.copy())
+            record(task['role'],model,body,task['skill'])
+        draft = current[-1]['body']
+        model,review = generate('Analyst',context,current.copy())
+        body = enforce_review(brief,current,review)
+        if not 0 < len(draft.strip()) <= 500:
+            body = 'HOLD\nWrite a complete post of at most 500 characters.\n' + body
+        record('Analyst',model,body,select('Analyst',brief)['slug'])
+        if (structured or providers) and body.splitlines()[0].strip() == 'READY':
+            model,decision = generate('CMO',{**context,'cmo_signoff':True},current.copy())
+            body = enforce_review(brief,current,decision)
+            if body.splitlines()[0].strip() not in ('READY','HOLD'):
+                body = 'HOLD\nCMO clearance was inconclusive.'
+            record('CMO',model,body,'product-marketing',decision=True)
         verdict = body.splitlines()[0].strip()
         if verdict != 'HOLD':
             break
         feedback = body
     return draft
 
-def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_version=None,skill=None,evidence="",seo_audit=None,rerun_of=None):
+def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_version=None,skill=None,evidence="",seo_audit=None,rerun_of=None,destinations=()):
     if path in ('signup','login'):
         now=int(time.time())
         with c:
@@ -145,14 +184,17 @@ def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_ve
         if scheduled and feedback:
             brief['measured_prior_posts'] = [{k:row[k] for k in ('network','draft','metrics','created')} for row in feedback]
         if not skill:
+            brief['delivery_scope'] = list(destinations) or ['private draft']
             brief['channel_evidence'] = channel_basis(brief)
         seed = []
         if rerun_of is not None:
             source = c.execute("SELECT brief,messages FROM runs WHERE id=? AND org=?", (rerun_of,oid)).fetchone()
             if not source or skill:
                 raise Problem('Held campaign required.')
-            seed = json.loads(source['messages'])[-4:]
-            if [m['role'] for m in seed] != list(ROLES) or seed[-1]['body'].splitlines()[0].strip() != 'HOLD':
+            trail = json.loads(source['messages'])
+            starts = [n for n,m in enumerate(trail) if m['role']=='CMO' and not m.get('decision')]
+            seed = trail[starts[-1]:] if starts else []
+            if not seed or seed[-1]['role'] not in ('CMO','Analyst') or seed[-1]['body'].splitlines()[0].strip() != 'HOLD':
                 raise Problem('Held campaign required.')
             brief = {**json.loads(source['brief']), 'rerun_of': rerun_of}
         with c:

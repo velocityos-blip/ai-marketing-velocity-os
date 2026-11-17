@@ -80,10 +80,11 @@ class Autopilot:
             try:
                 previous = db.execute("SELECT draft FROM runs WHERE org=? AND draft!='' AND status!='completed' ORDER BY id DESC LIMIT 1", (job["org"],)).fetchone()
                 result, _ = self.engine.action(db, "run", json.loads(job["brief"]), user, "", scheduled=True,
+                                               destinations=[ch["network"] for ch in channels] + (["mastodon"] if job["destination"] else []),
                                                previous=previous["draft"][:500] if previous else "", feedback=feedback, seo_audit=search_audit.refresh(db,job["org"]))
                 run = db.execute("SELECT * FROM runs WHERE id=?", (result["id"],)).fetchone()
                 review = json.loads(run["messages"])[-1]["body"].splitlines()[0].strip()
-                note = "Campaign prepared."
+                note = "AI CMO cleared the private draft." if review == "READY" else "Campaign held for review."
                 if channels:
                     if review == "READY" and 0 < len(run["draft"].strip()) <= 500:
                         social.deliver(db,job,run,channels)

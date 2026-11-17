@@ -69,6 +69,24 @@ class CampaignTests(unittest.TestCase):
         self.assertEqual(len(run['messages']),12)
         self.assertTrue(run['messages'][-1]['body'].startswith('HOLD'))
 
+    def test_cmo_assigns_specialist_and_controls_final_release(self):
+        import json
+        def agent(role,brief,history):
+            if brief.get('cmo_planning'):
+                return 'planner',json.dumps({'strategy':'Test a specific audience.','tasks':[
+                    {'type':'design','provider':'gemini','instruction':'Propose a visual brief.'},
+                    {'type':'implementation','provider':'unavailable','instruction':'Specify tracking.'}]})
+            if brief.get('cmo_signoff'):
+                return 'planner','READY\nCollect tagged clicks.'
+            return 'agent', 'READY' if role=='Analyst' else 'Campaign handoff'
+        with patch.object(app,'generate',side_effect=agent),patch.object(app,'available_providers',return_value=['openai','gemini','anthropic']):
+            self.call('run',self.brief)
+        run=app.state(self.c,self.a)['runs'][0]
+        self.assertEqual([m['role'] for m in run['messages']],['CMO','Design','Implementation','Digital Marketing','Content','Analyst','CMO'])
+        self.assertEqual([t['provider'] for t in run['messages'][0]['assignments']],['gemini','anthropic','gemini','openai'])
+        self.assertTrue(run['messages'][-1]['decision'])
+        self.assertIsNone(run['receipt'])
+
     def test_native_providers(self):
         for provider,reply in [('openai',{'choices':[{'message':{'content':'plan'}}]}),('anthropic',{'content':[{'type':'text','text':'plan'}]}),('gemini',{'candidates':[{'content':{'parts':[{'text':'plan'}]}}]})]:
             with self.subTest(provider=provider),patch.dict('os.environ',{'VOS_CMO':provider,provider.upper()+'_MODEL':'model',provider.upper()+'_API_KEY':'key'}),patch.object(agents,'request',return_value=reply) as req:
