@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {Link} from 'react-router-dom';
+import CampaignSchedule from "./CampaignSchedule";
 import CampaignOverview from './CampaignOverview';
 import SearchAudit from './SearchAudit';
 import SocialChannels,{Results} from './SocialChannels';
@@ -15,6 +16,7 @@ export default function CampaignDesk({api}){
  return <><p className="kicker">{ws.company}</p><div className="desktitle"><h1>AI CMO workspace</h1><span className="tag">{profile?.enabled?'Automation on':profile?'Paused':'Setup'}</span></div>
  {error&&<p className="notice" role="alert">{error}</p>}
  <CampaignOverview ws={ws}/>
+ <CampaignSchedule ws={ws} act={act} busy={busy}/>
  <div className="deskgrid"><section className="panel"><h2>{profile&&!editing?'Company brief':'Brief your AI CMO'}</h2>
  {admin&&(!profile||editing)?<form className="vform" onSubmit={configure}>
  {[['offer','What do you sell?','Inventory software for independent shops',200],['audience','Who do you want to reach?','Independent florists',200],['goal','What should the campaign achieve?','Book 10 demos in 30 days',600]].map(([k,label,hint,max])=><label key={k}>{label}<input name={k} required maxLength={max} defaultValue={previous[k]} placeholder={hint}/></label>)}

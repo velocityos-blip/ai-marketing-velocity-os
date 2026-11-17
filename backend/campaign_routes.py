@@ -4,6 +4,7 @@ from importlib import import_module
 from pathlib import Path
 import sys
 
+import post_calendar
 import search_audit
 import social
 import time
@@ -63,7 +64,7 @@ def register_campaign_routes(app, current_user, members, workspaces):
     @app.get("/api/campaign-agents")
     def dashboard(company=Depends(identity)):
         with closing(engine.db()) as connection:
-            return {**engine.state(connection, company), "seo":search_audit.state(connection,company["org"]), "channels":social.state(connection,company["org"]), "deliveries":social.history(connection,company["org"]), "autopilot":pilot.state(connection, company["org"])}
+            return {**engine.state(connection, company), "calendar":post_calendar.entries(connection,company["org"]), "seo":search_audit.state(connection,company["org"]), "channels":social.state(connection,company["org"]), "deliveries":social.history(connection,company["org"]), "autopilot":pilot.state(connection, company["org"])}
 
     @app.get("/api/social-media/{key}")
     def media(key: str):
@@ -99,12 +100,14 @@ def register_campaign_routes(app, current_user, members, workspaces):
 
     @app.post("/api/campaign-agents/{operation}")
     def campaign_action(operation: str, payload: dict, request: Request, company=Depends(identity)):
-        if operation not in ACTIONS | {"configure", "pause", "run-skill"}:
+        if operation not in ACTIONS | {"configure", "pause", "run-skill","reschedule-post","cancel-post","plan-private"}:
             raise HTTPException(404, "Unknown campaign action.")
         if request.headers.get("X-VOS-Client") != "dashboard":
             raise HTTPException(403, "Open the campaign in your VOS dashboard.")
         with closing(engine.db()) as connection:
             try:
+                if operation in {"reschedule-post","cancel-post","plan-private"}:
+                    return post_calendar.change(connection,engine,company,operation,payload)
                 if operation == "run-skill":
                     engine.admin(company)
                     profile = pilot.state(connection, company["org"])

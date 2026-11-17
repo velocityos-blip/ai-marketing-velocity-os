@@ -1,4 +1,5 @@
 """One scheduler per VOS API process. The schedule and handoffs live in SQLite."""
+import post_calendar
 import search_audit
 import social
 import json
@@ -18,6 +19,7 @@ class Autopilot:
     def start(self):
         with closing(self.engine.db()) as db, db:
             social.setup(db)
+            post_calendar.setup(db)
             search_audit.setup(db)
             db.execute("""CREATE TABLE IF NOT EXISTS autopilot (
                 org INTEGER PRIMARY KEY REFERENCES org, brief TEXT NOT NULL,
@@ -64,6 +66,8 @@ class Autopilot:
 
     def tick(self):
         with closing(self.engine.db()) as db:
+            if post_calendar.dispatch(db,self.engine):
+                return True
             now = int(time.time())
             with db:
                 db.execute("BEGIN IMMEDIATE")
@@ -85,25 +89,10 @@ class Autopilot:
                 run = db.execute("SELECT * FROM runs WHERE id=?", (result["id"],)).fetchone()
                 review = json.loads(run["messages"])[-1]["body"].splitlines()[0].strip()
                 note = "AI CMO cleared the private draft." if review == "READY" else "Campaign held for review."
-                if channels:
-                    if review == "READY" and 0 < len(run["draft"].strip()) <= 500:
-                        social.deliver(db,job,run,channels)
-                        if not job["destination"]:
-                            delivered = db.execute("SELECT count(*) FROM social_post WHERE run=? AND remote IS NOT NULL", (run["id"],)).fetchone()[0]
-                            if delivered:
-                                with db:
-                                    db.execute("UPDATE runs SET status=? WHERE id=?", ("published" if delivered == len(channels) else "partially published", run["id"]))
-                        note = "Campaign finished. See channel deliveries below."
-                    else:
-                        note = "Post held for review."
-                if job["destination"]:
-                    if review != "READY" or not 0 < len(run["draft"].strip()) <= 500:
-                        note = "Post held for review."
-                    else:
-                        self.engine.action(db, "approve", {"id": run["id"], "draft": run["draft"]}, user, "")
-                        self.engine.action(db, "publish", {"id": run["id"], "social": job["destination"]},
-                                           user, "", schedule_version=job["version"])
-                        note = "Published to @" + job["destination"] + "."
+                if review == "READY" and 0 < len(run["draft"].strip()) <= 500:
+                    if post_calendar.enqueue(db,job,run,channels):
+                        note = ("Posts scheduled on the publishing calendar." if channels or job["destination"]
+                                else "Private draft added to the calendar.")
             except self.engine.Problem as exc:
                 note = str(exc)
             with db:

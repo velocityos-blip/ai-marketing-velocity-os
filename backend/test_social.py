@@ -70,6 +70,8 @@ class SocialFlow(unittest.TestCase):
                     return "test","READY\nReviewed" if role=="Analyst" else "A test campaign."
                 with patch.object(engine,"generate",side_effect=generate):
                     self.assertTrue(pilot.tick())
+                    with db: db.execute("UPDATE scheduled_post SET due=0")
+                    for _ in range(3): self.assertTrue(pilot.tick())
                     posts=social.history(db,org)
                     self.assertEqual([r["status"] for r in posts],["Published"]*3)
                     with db: db.execute("UPDATE social_post SET due=0")
