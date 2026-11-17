@@ -86,6 +86,10 @@ def generate(role, brief, history):
                    'Hold if any handoff asserts unsupported performance, even when the public copy is clean. '
                    'Identify the role and offending claim, explain the evidence gap, and give a correction. '
                    'Do not infer sitewide totals from sampled rows. Do not hold merely because a baseline is unknown.')
+    if brief.get('marketing_reports'):
+        system += (' Use dated marketing_reports only for their named source, account, period and metric. '
+                   'GA4 key events are not necessarily qualified leads. Profile lifetime totals do not measure campaign lift. '
+                   'A relative change requires comparable periods; never invent missing measurements.')
     if brief.get('measured_prior_posts'):
         system += ' Use the observed post-level metrics to choose the next creative experiment. Compare only like metrics within a network. Explain what to change and why, accounting for small samples and post age.'
     if role == 'Analyst' and brief.get('automated_review'):

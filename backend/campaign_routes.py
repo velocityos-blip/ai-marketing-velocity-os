@@ -4,6 +4,7 @@ from importlib import import_module
 from pathlib import Path
 import sys
 
+import marketing_metrics
 import post_calendar
 import search_audit
 import social
@@ -64,7 +65,7 @@ def register_campaign_routes(app, current_user, members, workspaces):
     @app.get("/api/campaign-agents")
     def dashboard(company=Depends(identity)):
         with closing(engine.db()) as connection:
-            return {**engine.state(connection, company), "calendar":post_calendar.entries(connection,company["org"]), "seo":search_audit.state(connection,company["org"]), "channels":social.state(connection,company["org"]), "deliveries":social.history(connection,company["org"]), "autopilot":pilot.state(connection, company["org"])}
+            return {**engine.state(connection, company), "integrations":marketing_metrics.state(connection,company["org"]), "calendar":post_calendar.entries(connection,company["org"]), "seo":search_audit.state(connection,company["org"]), "channels":social.state(connection,company["org"]), "deliveries":social.history(connection,company["org"]), "autopilot":pilot.state(connection, company["org"])}
 
     @app.get("/api/social-media/{key}")
     def media(key: str):
@@ -85,6 +86,18 @@ def register_campaign_routes(app, current_user, members, workspaces):
                 raise
             except Exception:
                 raise HTTPException(502,"Google authorization failed. Check app and property access.") from None
+
+    @app.post("/api/marketing-integrations/{operation}")
+    def measurement_action(operation: str,payload: dict,request: Request,company=Depends(identity)):
+        if company['role']!='admin' or request.headers.get('X-VOS-Client')!='dashboard':
+            raise HTTPException(403,'Company administrator access required.')
+        with closing(engine.db()) as db:
+            try:
+                return marketing_metrics.action(db,company,operation,payload)
+            except HTTPException:
+                raise
+            except Exception:
+                raise HTTPException(502,'Provider could not verify access. Check API enablement, permissions and account details.') from None
 
     @app.post("/api/social/{operation}")
     def connection_action(operation: str, payload: dict, request: Request, company=Depends(identity)):

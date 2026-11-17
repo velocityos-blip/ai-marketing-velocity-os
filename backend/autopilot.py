@@ -1,4 +1,5 @@
 """One scheduler per VOS API process. The schedule and handoffs live in SQLite."""
+import marketing_metrics
 import post_calendar
 import search_audit
 import social
@@ -20,6 +21,7 @@ class Autopilot:
         with closing(self.engine.db()) as db, db:
             social.setup(db)
             post_calendar.setup(db)
+            marketing_metrics.setup(db)
             search_audit.setup(db)
             db.execute("""CREATE TABLE IF NOT EXISTS autopilot (
                 org INTEGER PRIMARY KEY REFERENCES org, brief TEXT NOT NULL,
@@ -77,13 +79,14 @@ class Autopilot:
                     due = now + WEEK if job["cadence"] == "weekly" else None
                     db.execute("UPDATE autopilot SET due=?, note='Agents are working.' WHERE org=?", (due, job["org"]))
             if not job:
-                return search_audit.tick(db) or social.collect(db)
+                return marketing_metrics.tick(db) or search_audit.tick(db) or social.collect(db)
             channels = social.targets(db, job["org"])
             feedback = [row for row in social.history(db, job["org"]) if row["metrics"]][:8]
             user = dict(org=job["org"], role="admin", name=job["name"], tier=job["tier"])
             try:
                 previous = db.execute("SELECT draft FROM runs WHERE org=? AND draft!='' AND status!='completed' ORDER BY id DESC LIMIT 1", (job["org"],)).fetchone()
                 result, _ = self.engine.action(db, "run", json.loads(job["brief"]), user, "", scheduled=True,
+                                               metric_reports={r["source"]:{**r["report"],"checked":r["checked"]} for r in marketing_metrics.state(db,job["org"]) if r["connected"] and not r["problem"]},
                                                destinations=[ch["network"] for ch in channels] + (["mastodon"] if job["destination"] else []),
                                                previous=previous["draft"][:500] if previous else "", feedback=feedback, seo_audit=search_audit.refresh(db,job["org"]))
                 run = db.execute("SELECT * FROM runs WHERE id=?", (result["id"],)).fetchone()

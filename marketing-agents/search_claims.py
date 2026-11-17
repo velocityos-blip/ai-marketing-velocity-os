@@ -38,6 +38,15 @@ def supported(brief, sentence, match):
     keys = METRIC_KEYS.get(metric, ())
     context = sentence.lower()
     networks = [n for n in NETWORKS if re.search(r"\b"+n+r"\b",context)]
+    reports = brief.get('marketing_reports', {})
+    if not networks and not re.search(r"\b(email|social|paid|referral|utm|direct)\b",context):
+        for source, pattern, mapping in (
+            ('bing',r'\bbing\b',{'click':'Clicks','impression':'Impressions'}),
+            ('ga4',r'\b(?:ga4|google analytics)\b',{'session':'sessions'}),
+        ):
+            if re.search(pattern,context):
+                key=mapping.get(metric)
+                return bool(key and reports.get(source,{}).get('metrics',{}).get(key)==number)
     if re.search(r"\b(utm|referral|paid|email|newsletter|sitewide|site-wide)\b",context) or len(networks)>1:
         sources = []
     elif networks:

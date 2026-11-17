@@ -141,7 +141,7 @@ def run_team(brief, save, seed=(), *, on_activity=None):
         feedback = body
     return draft
 
-def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_version=None,skill=None,evidence="",seo_audit=None,rerun_of=None,destinations=()):
+def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_version=None,skill=None,evidence="",seo_audit=None,rerun_of=None,destinations=(),metric_reports=None):
     if path in ('signup','login'):
         now=int(time.time())
         with c:
@@ -196,6 +196,8 @@ def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_ve
             if evidence.strip():
                 brief['evidence_length'] = len(evidence)
                 brief['observations'] = observations(skill,evidence)
+        if scheduled and metric_reports:
+            brief['marketing_reports'] = metric_reports
         if scheduled and seo_audit:
             brief["website_audit"] = annotate(seo_audit)
         if scheduled and feedback:
