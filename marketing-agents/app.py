@@ -81,8 +81,11 @@ def assignments(body, providers):
                           instruction=instruction[:600] if isinstance(instruction,str) and instruction.strip() else default))
     return (plan['strategy'] if structured else body), tasks, structured
 
-def run_team(brief, save, seed=()):
+def run_team(brief, save, seed=(), *, on_activity=None):
     """Keep the full review trail, but judge only the current handoffs."""
+    def active(role, task, provider=None):
+        if on_activity:
+            on_activity(dict(role=role,task=task,provider=provider,started=int(time.time())))
     history = list(seed)
     if seed:
         save(history)
@@ -95,6 +98,7 @@ def run_team(brief, save, seed=()):
         providers = available_providers()
         planning = {**context,'cmo_planning':True,'available_providers':providers,
                     'capabilities':{k:{'preferred':v[2],'scope':v[3]} for k,v in TASKS.items()}}
+        active('CMO','Choose specialists and assign the campaign work')
         model, raw = generate('CMO',planning,[])
         strategy, tasks, structured = assignments(raw,providers)
         def record(role, model, body, skill, **extra):
@@ -106,9 +110,10 @@ def run_team(brief, save, seed=()):
         for task in tasks:
             candidates = [task['provider']] + [p for p in providers if p != task['provider']]
             for provider in candidates:
-                active = {**task,'provider':provider}
+                routed = {**task,'provider':provider}
+                active(task['role'],task['instruction'],provider)
                 try:
-                    model,body = generate(task['role'],{**context,'assignment':active},current.copy())
+                    model,body = generate(task['role'],{**context,'assignment':routed},current.copy())
                     break
                 except (URLError, TimeoutError, ValueError) as exc:
                     if isinstance(exc, HTTPError) and exc.code not in (408,429,500,502,503,504):
@@ -117,12 +122,14 @@ def run_team(brief, save, seed=()):
                         raise
             record(task['role'],model,body,task['skill'])
         draft = current[-1]['body']
+        active('Analyst','Check the draft and evidence')
         model,review = generate('Analyst',context,current.copy())
         body = enforce_review(brief,current,review)
         if not 0 < len(draft.strip()) <= 500:
             body = 'HOLD\nWrite a complete post of at most 500 characters.\n' + body
         record('Analyst',model,body,select('Analyst',brief)['slug'])
         if (structured or providers) and body.splitlines()[0].strip() == 'READY':
+            active('CMO','Review the handoffs and decide whether the campaign is ready')
             model,decision = generate('CMO',{**context,'cmo_signoff':True},current.copy())
             body = enforce_review(brief,current,decision)
             if body.splitlines()[0].strip() not in ('READY','HOLD'):
@@ -226,7 +233,11 @@ def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_ve
                 model, draft = generate(role,brief,[])
                 save([dict(role=role,model=model,body=draft,skill=skill)])
             else:
-                draft = run_team(brief,save,seed)
+                def on_activity(activity):
+                    with c:
+                        c.execute("UPDATE runs SET brief=json_set(brief,'$.active_task',json(?)) WHERE id=?",
+                                  (json.dumps(activity),rid))
+                draft = run_team(brief,save,seed,on_activity=on_activity)
             with c: c.execute("update runs set status=?,draft=? where id=?",("completed" if skill else "review",draft,rid))
         except Exception:
             with c: c.execute("update runs set status='failed' where id=?",(rid,))
