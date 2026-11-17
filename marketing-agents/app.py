@@ -55,7 +55,7 @@ def account(d):
     return email,salt+':'+password(pw,salt)
 def admin(u):
     if u['role']!='admin': raise Problem('Company admin required.',403)
-def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_version=None,skill=None,evidence=""):
+def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_version=None,skill=None,evidence="",seo_audit=None):
     if path in ('signup','login'):
         now=int(time.time())
         with c:
@@ -110,6 +110,8 @@ def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_ve
             if evidence.strip():
                 brief['evidence_length'] = len(evidence)
                 brief['observations'] = observations(skill,evidence)
+        if scheduled and seo_audit:
+            brief["website_audit"] = seo_audit
         if scheduled and feedback:
             brief['measured_prior_posts'] = [{k:row[k] for k in ('network','draft','metrics','created')} for row in feedback]
         with c:

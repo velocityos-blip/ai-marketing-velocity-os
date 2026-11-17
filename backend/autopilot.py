@@ -1,4 +1,5 @@
 """One scheduler per VOS API process. The schedule and handoffs live in SQLite."""
+import search_audit
 import social
 import json
 import logging
@@ -17,6 +18,7 @@ class Autopilot:
     def start(self):
         with closing(self.engine.db()) as db, db:
             social.setup(db)
+            search_audit.setup(db)
             db.execute("""CREATE TABLE IF NOT EXISTS autopilot (
                 org INTEGER PRIMARY KEY REFERENCES org, brief TEXT NOT NULL,
                 cadence TEXT NOT NULL, destination TEXT, enabled INTEGER NOT NULL,
@@ -71,14 +73,14 @@ class Autopilot:
                     due = now + WEEK if job["cadence"] == "weekly" else None
                     db.execute("UPDATE autopilot SET due=?, note='Agents are working.' WHERE org=?", (due, job["org"]))
             if not job:
-                return social.collect(db)
+                return search_audit.tick(db) or social.collect(db)
             channels = social.targets(db, job["org"])
             feedback = [row for row in social.history(db, job["org"]) if row["metrics"]][:8]
             user = dict(org=job["org"], role="admin", name=job["name"], tier=job["tier"])
             try:
                 previous = db.execute("SELECT draft FROM runs WHERE org=? AND draft!='' AND status!='completed' ORDER BY id DESC LIMIT 1", (job["org"],)).fetchone()
                 result, _ = self.engine.action(db, "run", json.loads(job["brief"]), user, "", scheduled=True,
-                                               previous=previous["draft"][:500] if previous else "", feedback=feedback)
+                                               previous=previous["draft"][:500] if previous else "", feedback=feedback, seo_audit=search_audit.refresh(db,job["org"]))
                 run = db.execute("SELECT * FROM runs WHERE id=?", (result["id"],)).fetchone()
                 review = json.loads(run["messages"])[-1]["body"].splitlines()[0].strip()
                 note = "Campaign prepared."

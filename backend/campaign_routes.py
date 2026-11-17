@@ -4,6 +4,7 @@ from importlib import import_module
 from pathlib import Path
 import sys
 
+import search_audit
 import social
 import time
 from fastapi.responses import Response
@@ -62,7 +63,7 @@ def register_campaign_routes(app, current_user, members, workspaces):
     @app.get("/api/campaign-agents")
     def dashboard(company=Depends(identity)):
         with closing(engine.db()) as connection:
-            return {**engine.state(connection, company), "channels":social.state(connection,company["org"]), "deliveries":social.history(connection,company["org"]), "autopilot":pilot.state(connection, company["org"])}
+            return {**engine.state(connection, company), "seo":search_audit.state(connection,company["org"]), "channels":social.state(connection,company["org"]), "deliveries":social.history(connection,company["org"]), "autopilot":pilot.state(connection, company["org"])}
 
     @app.get("/api/social-media/{key}")
     def media(key: str):
@@ -71,6 +72,18 @@ def register_campaign_routes(app, current_user, members, workspaces):
         if not row:
             raise HTTPException(404,"Image expired.")
         return Response(row[0],media_type="image/jpeg")
+
+    @app.post("/api/search-audit/{operation}")
+    def search_action(operation: str,payload: dict,request: Request,company=Depends(identity)):
+        if company["role"]!="admin" or request.headers.get("X-VOS-Client")!="dashboard":
+            raise HTTPException(403,"Company administrator access required.")
+        with closing(engine.db()) as db:
+            try:
+                return search_audit.action(db,company,operation,payload)
+            except HTTPException:
+                raise
+            except Exception:
+                raise HTTPException(502,"Google authorization failed. Check app and property access.") from None
 
     @app.post("/api/social/{operation}")
     def connection_action(operation: str, payload: dict, request: Request, company=Depends(identity)):
