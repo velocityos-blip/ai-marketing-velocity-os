@@ -1,20 +1,21 @@
 ---
 name: seo-audit
-description: SEO audit. Deliver a prioritized issue log with verification steps.
+description: Site-wide SEO audit. A prioritized issue register with scope, evidence, fix owner and retest procedure.
 role: Digital Marketing
+collection: SEO
 triggers: SEO audit,organic traffic,crawlability
 ---
 
-# SEO audit
+# Site-wide SEO audit
 
 ## Method
 
-Review crawl access, indexing, search intent and page quality using supplied URLs or crawl evidence. Rank fixes by affected pages and impact.
+Group supplied crawl rows by URL template. Trace discovery, status, index directives, canonical target and content intent. Count affected URLs and record representative examples.
 
 ## Deliverable
 
-Deliver a prioritized issue log with verification steps.
+A prioritized issue register with scope, evidence, fix owner and retest procedure.
 
 ## Review
 
-Separate confirmed defects from checks that require site access.
+State sample coverage and distinguish missing data from verified defects.

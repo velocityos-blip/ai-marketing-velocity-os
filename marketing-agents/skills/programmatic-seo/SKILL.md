@@ -1,7 +1,8 @@
 ---
 name: programmatic-seo
-description: Programmatic SEO. Deliver a template, pilot URL set and quality gates.
+description: Programmatic SEO. A template, pilot URL set and checks before expanding coverage.
 role: Digital Marketing
+collection: SEO
 triggers: programmatic SEO,template pages,location pages
 ---
 
@@ -9,12 +10,12 @@ triggers: programmatic SEO,template pages,location pages
 
 ## Method
 
-Define a repeatable search intent and a dataset that gives each page distinct value. Specify template fields and indexation rules.
+Define a repeatable search intent and dataset that gives each page distinct value. Specify required fields, canonical rules, links and indexation conditions.
 
 ## Deliverable
 
-Deliver a template, pilot URL set and quality gates.
+A template, pilot URL set and checks before expanding coverage.
 
 ## Review
 
-Suppress empty, duplicative and unsupported combinations.
+Suppress empty, duplicate and unsupported combinations.

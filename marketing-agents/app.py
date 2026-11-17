@@ -7,9 +7,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError
 if __package__:
+    from .seo_evidence import observations
     from .playbooks import catalog, select
     from .agents import generate, request, ROLES
 else:
+    from seo_evidence import observations
     from playbooks import catalog, select
     from agents import generate, request, ROLES
 
@@ -53,7 +55,7 @@ def account(d):
     return email,salt+':'+password(pw,salt)
 def admin(u):
     if u['role']!='admin': raise Problem('Company admin required.',403)
-def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_version=None,skill=None):
+def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_version=None,skill=None,evidence=""):
     if path in ('signup','login'):
         now=int(time.time())
         with c:
@@ -102,7 +104,12 @@ def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_ve
         if skill is not None:
             if skill not in catalog():
                 raise Problem('Unknown marketing skill.',404)
+            if not isinstance(evidence,str) or len(evidence)>16000:
+                raise Problem('Evidence must be text of up to 16,000 characters.')
             brief['skill'] = skill
+            if evidence.strip():
+                brief['evidence_length'] = len(evidence)
+                brief['observations'] = observations(skill,evidence)
         if scheduled and feedback:
             brief['measured_prior_posts'] = [{k:row[k] for k in ('network','draft','metrics','created')} for row in feedback]
         with c:
@@ -110,6 +117,8 @@ def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_ve
             used=c.execute("select count(*) from runs where org=? and created>=date('now','start of month')",(oid,)).fetchone()[0]
             if used>=LIMITS[u['tier']]: raise Problem('Monthly run allowance reached.',429)
             rid=c.execute("insert into runs(org,brief,status) values(?,?,'working')",(oid,json.dumps(brief))).lastrowid
+        if skill and evidence.strip():
+            brief["supplied_evidence"] = evidence
         if scheduled:
             brief['automated_review'] = True
             if previous: brief['previous_post_to_avoid_repeating'] = previous

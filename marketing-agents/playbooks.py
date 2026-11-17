@@ -19,7 +19,7 @@ def catalog():
         slug = meta["name"]
         if slug != path.parent.name or meta["role"] not in DEFAULTS:
             raise ValueError(f"Invalid playbook: {path}")
-        result[slug] = dict(slug=slug, title=title.removeprefix("# "), role=meta["role"],
+        result[slug] = dict(slug=slug, title=title.removeprefix("# "), role=meta["role"], collection=meta.get("collection","Marketing"),
                             terms=[term.strip().lower() for term in meta["triggers"].split(",")],
                             method=method, deliverable=deliverable, review=review)
     return result

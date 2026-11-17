@@ -1,20 +1,21 @@
 ---
 name: competitors
-description: Competitive comparisons. Draft a comparison page with fit, tradeoffs, sources and a next step.
+description: Competitive comparison pages. A comparison page outline with fit, tradeoffs, sources and a next step.
 role: CMO
+collection: SEO
 triggers: versus,comparison page,alternatives
 ---
 
-# Competitive comparisons
+# Competitive comparison pages
 
 ## Method
 
-Identify the buyer's evaluation criteria and compare each option on equivalent terms.
+Identify the buyer's evaluation criteria and search intent. Compare current alternatives using named, dated evidence. Decide whether a versus page or alternatives list better serves the query.
 
 ## Deliverable
 
-Draft a comparison page with fit, tradeoffs, sources and a next step.
+A comparison page outline with fit, tradeoffs, sources and a next step.
 
 ## Review
 
-Verify material competitor claims before publication.
+Verify material competitor claims and avoid unsupported superiority claims.

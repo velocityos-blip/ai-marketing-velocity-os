@@ -1,20 +1,21 @@
 ---
 name: ai-seo
-description: AI search visibility. Create a question-to-source map and a repeatable visibility check.
+description: AI search visibility. A question-to-source map and repeatable visibility check across the same prompts.
 role: Digital Marketing
-triggers: AI SEO,AI search,answer engine
+collection: SEO
+triggers: AI SEO,AI search,answer engine,GEO audit
 ---
 
 # AI search visibility
 
 ## Method
 
-List buyer questions and inspect supplied answer samples for brand mentions, citations and gaps. Prioritize answerable gaps.
+List buyer questions and compare supplied answer samples for brand mentions, cited pages and whether the cited content supports the answer. Prioritize answerable gaps.
 
 ## Deliverable
 
-Create a question-to-source map and a repeatable visibility check.
+A question-to-source map and repeatable visibility check across the same prompts.
 
 ## Review
 
-Record the engine, query and sample date for each observation.
+Record engine, query, locale and date. Avoid inferring visibility from a single answer.

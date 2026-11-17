@@ -1,7 +1,8 @@
 ---
 name: schema
-description: Structured data. Produce a JSON-LD example and a validation checklist.
+description: Structured data. A JSON-LD example and checks for syntax, entity identity and page parity.
 role: Analyst
+collection: SEO
 triggers: schema,structured data,JSON-LD
 ---
 
@@ -9,12 +10,12 @@ triggers: schema,structured data,JSON-LD
 
 ## Method
 
-Choose a schema type supported by visible page content. Map required properties to verified facts.
+Choose a schema type supported by visible content. Map properties to verified facts and connect related entities using stable identifiers.
 
 ## Deliverable
 
-Produce a JSON-LD example and a validation checklist.
+A JSON-LD example and checks for syntax, entity identity and page parity.
 
 ## Review
 
-Exclude hidden claims, fictional reviews and unsupported properties.
+Exclude hidden claims and fictional reviews. Eligibility does not guarantee rich results.

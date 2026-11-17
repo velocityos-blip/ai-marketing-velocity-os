@@ -100,7 +100,7 @@ def register_campaign_routes(app, current_user, members, workspaces):
                     slug = payload.get("skill")
                     if not isinstance(slug, str) or slug not in engine.catalog():
                         raise engine.Problem("Unknown marketing skill.",404)
-                    result, _ = engine.action(connection,"run",profile["brief"],company,"",skill=slug)
+                    result, _ = engine.action(connection,"run",profile["brief"],company,"",skill=slug,evidence=payload.get("evidence",""))
                     return result
                 if operation == "configure":
                     pilot.configure(connection, company, payload)
