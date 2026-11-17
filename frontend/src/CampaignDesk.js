@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import {Link} from 'react-router-dom';
 import SocialChannels,{Results} from './SocialChannels';
 const stamp=t=>new Date(t*1000).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});
 export default function CampaignDesk({api}){
@@ -23,9 +24,9 @@ export default function CampaignDesk({api}){
  <dl><dt>Next campaign</dt><dd>{profile?.due?stamp(profile.due):'None scheduled'}</dd><dt>Runs this month</dt><dd>{ws.used} / {ws.limit}</dd></dl>
  {admin&&<details><summary>Publishing connection</summary><p>{ws.social?'Connected to @'+ws.social:'Connect Mastodon to enable automatic publishing. You can also keep drafts private.'}</p><form className="vform" onSubmit={e=>{e.preventDefault();const f=e.currentTarget;act('connect',{token:f.elements.token.value},()=>f.reset())}}><label>Mastodon.social token<input name="token" type="password" required autoComplete="off"/></label><button className="vquiet" disabled={busy}>Connect account</button></form>{ws.social&&<button onClick={()=>act('disconnect',{})} disabled={busy}>Disconnect</button>}</details>}</aside></div>
  <SocialChannels api={api} ws={ws} load={load}/>
- <h2 className="feedtitle">Campaign activity</h2>{!ws.runs.length&&<p className="empty">Your agents’ work will appear here as each handoff finishes.</p>}
- {ws.runs.map(r=><article className="panel run" key={r.id}><div className="runhead"><small>Campaign {r.id} · {r.created} UTC</small><span className="tag">{r.status}</span></div><h3>{r.brief.goal}</h3>
- {r.draft&&<blockquote>{r.draft}</blockquote>}<details><summary>Agent handoffs ({r.messages.length}/4)</summary>{r.messages.map(m=><div className="handoff" key={m.role}><strong>{m.role}</strong><small>{m.model}</small><p>{m.body}</p></div>)}</details>
+ <div className="runhead"><h2 className="feedtitle">Campaign activity</h2><Link to="/ai-tools">Explore agent skills ↗</Link></div>{!ws.runs.length&&<p className="empty">Your agents’ work will appear here as each handoff finishes.</p>}
+ {ws.runs.map(r=><article className="panel run" key={r.id}><div className="runhead"><small>Campaign {r.id} · {r.created} UTC</small><span className="tag">{r.status}</span></div><h3>{r.brief.skill ? r.brief.skill.replace(/-/g," "):r.brief.goal}</h3>
+ {r.draft&&<blockquote>{r.draft}</blockquote>}<details><summary>Agent handoffs ({r.messages.length}/{r.brief.skill?1:4})</summary>{r.messages.map(m=><div className="handoff" key={m.role}><strong>{m.role}</strong><small>{m.model}{m.skill && " · "+m.skill}</small><p>{m.body}</p></div>)}</details>
  {admin&&r.status==='review'&&<details><summary>Edit and approve manually</summary><form className="vform" onSubmit={e=>{e.preventDefault();act('approve',{id:r.id,draft:e.currentTarget.elements.copy.value})}}><label>Post<textarea name="copy" defaultValue={r.draft} maxLength={500} required/></label><button disabled={busy} className="vquiet">Approve post</button></form></details>}
  {admin&&r.status==='approved'&&ws.social&&<button className="vquiet" disabled={busy} onClick={()=>act('publish',{id:r.id,social:ws.social})}>Publish to @{ws.social}</button>}
  <Results deliveries={ws.deliveries} id={r.id}/>

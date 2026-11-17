@@ -55,6 +55,10 @@ def register_campaign_routes(app, current_user, members, workspaces):
         with closing(engine.db()) as connection:
             return company_context(connection, workspace, member, user["email"])
 
+    @app.get("/api/marketing-skills")
+    def skill_library(company=Depends(identity)):
+        return list(engine.catalog().values())
+
     @app.get("/api/campaign-agents")
     def dashboard(company=Depends(identity)):
         with closing(engine.db()) as connection:
@@ -82,12 +86,22 @@ def register_campaign_routes(app, current_user, members, workspaces):
 
     @app.post("/api/campaign-agents/{operation}")
     def campaign_action(operation: str, payload: dict, request: Request, company=Depends(identity)):
-        if operation not in ACTIONS | {"configure", "pause"}:
+        if operation not in ACTIONS | {"configure", "pause", "run-skill"}:
             raise HTTPException(404, "Unknown campaign action.")
         if request.headers.get("X-VOS-Client") != "dashboard":
             raise HTTPException(403, "Open the campaign in your VOS dashboard.")
         with closing(engine.db()) as connection:
             try:
+                if operation == "run-skill":
+                    engine.admin(company)
+                    profile = pilot.state(connection, company["org"])
+                    if not profile:
+                        raise engine.Problem("Save your company brief in the dashboard first.")
+                    slug = payload.get("skill")
+                    if not isinstance(slug, str) or slug not in engine.catalog():
+                        raise engine.Problem("Unknown marketing skill.",404)
+                    result, _ = engine.action(connection,"run",profile["brief"],company,"",skill=slug)
+                    return result
                 if operation == "configure":
                     pilot.configure(connection, company, payload)
                     return {"ok": True}

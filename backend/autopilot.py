@@ -76,7 +76,7 @@ class Autopilot:
             feedback = [row for row in social.history(db, job["org"]) if row["metrics"]][:8]
             user = dict(org=job["org"], role="admin", name=job["name"], tier=job["tier"])
             try:
-                previous = db.execute("SELECT draft FROM runs WHERE org=? AND draft!='' ORDER BY id DESC LIMIT 1", (job["org"],)).fetchone()
+                previous = db.execute("SELECT draft FROM runs WHERE org=? AND draft!='' AND status!='completed' ORDER BY id DESC LIMIT 1", (job["org"],)).fetchone()
                 result, _ = self.engine.action(db, "run", json.loads(job["brief"]), user, "", scheduled=True,
                                                previous=previous["draft"][:500] if previous else "", feedback=feedback)
                 run = db.execute("SELECT * FROM runs WHERE id=?", (result["id"],)).fetchone()

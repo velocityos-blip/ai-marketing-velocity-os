@@ -1,5 +1,6 @@
 // Additional page components for Marketing SaaS
 import React, { useState, useEffect } from 'react';
+import SkillLibrary from './SkillLibrary';
 import { useNavigate } from 'react-router-dom';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL || process.env.PUBLIC_URL || '';
@@ -131,6 +132,7 @@ export function AIToolsPage({ user, onLogout }) {
 
       <div className="container mx-auto px-6 py-8">
         <h1 className="text-3xl font-bold mb-8">AI Marketing Tools</h1>
+        <SkillLibrary apiCall={apiCall}/>
 
         <div className="bg-white rounded-xl shadow-lg p-8">
           <div className="mb-6">

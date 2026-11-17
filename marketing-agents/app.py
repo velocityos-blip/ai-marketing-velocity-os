@@ -7,8 +7,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError
 if __package__:
+    from .playbooks import catalog, select
     from .agents import generate, request, ROLES
 else:
+    from playbooks import catalog, select
     from agents import generate, request, ROLES
 
 ROOT = Path(__file__).resolve().parent
@@ -51,7 +53,7 @@ def account(d):
     return email,salt+':'+password(pw,salt)
 def admin(u):
     if u['role']!='admin': raise Problem('Company admin required.',403)
-def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_version=None):
+def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_version=None,skill=None):
     if path in ('signup','login'):
         now=int(time.time())
         with c:
@@ -97,6 +99,10 @@ def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_ve
         budget=d.get('budget')
         if type(budget) is not int or not 0<=budget<=100000000: raise Problem('Budget must be a nonnegative whole USD amount.')
         brief.update(budget=budget,company=u['name'],channel='Organic social')
+        if skill is not None:
+            if skill not in catalog():
+                raise Problem('Unknown marketing skill.',404)
+            brief['skill'] = skill
         if scheduled and feedback:
             brief['measured_prior_posts'] = [{k:row[k] for k in ('network','draft','metrics','created')} for row in feedback]
         with c:
@@ -109,11 +115,11 @@ def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_ve
             if previous: brief['previous_post_to_avoid_repeating'] = previous
         history=[]
         try:
-            for role in ROLES:
+            for role in ([catalog()[skill]['role']] if skill else ROLES):
                 model,body=generate(role,brief,history)
-                history.append(dict(role=role,model=model,body=body))
+                history.append(dict(role=role,model=model,body=body,skill=select(role,brief)['slug']))
                 with c: c.execute('update runs set messages=? where id=?',(json.dumps(history),rid))
-            with c: c.execute("update runs set status='review',draft=? where id=?",(history[2]['body'],rid))
+            with c: c.execute("update runs set status=?,draft=? where id=?",("completed" if skill else "review",history[0 if skill else 2]['body'],rid))
         except Exception:
             with c: c.execute("update runs set status='failed' where id=?",(rid,))
             raise Problem('Agent run stopped. Check provider settings; completed handoffs are saved.',502)
