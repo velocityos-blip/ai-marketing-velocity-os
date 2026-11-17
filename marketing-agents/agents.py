@@ -53,9 +53,14 @@ def generate(role, brief, history):
         system += (' Search Console metrics are UNKNOWN. An empty rows array means Google returned no reporting rows. '
                    'Never infer a numeric baseline, absent traffic, poor ranking or visibility. State the gap once in internal planning. '
                    'Never prescribe a zero-click starting point for another channel either. Use measurements to establish the baseline. Treat numeric experiment targets as future goals. Distinguish raw HTML crawl observations from search behavior.')
+    if brief.get('channel_evidence'):
+        system += (' Follow channel_evidence independently for each source. Missing social referral sessions, email performance, '
+                   'qualified leads or conversions are unknown even if Google or platform reports contain rows. A tagged link is a '
+                   'measurement plan; it provides no visit count. A post click is not a site visit. Never say "zero known", '
+                   '"no recorded visits" or imply inactivity from missing analytics. Only use measured values for their source and scope.')
     if brief.get('correct_baseline'):
-        system += ' Rewrite your handoff. No historical numerical baseline of any kind has been supplied, including social or UTM clicks. Say "measure the baseline" without assigning any value. Omit numerical goals in this revision.'
-    if role == 'Analyst' and report:
+        system += ' Rewrite your handoff. Remove unsupported channel counts. Retain a measurement only if the source provides that specific metric. Say "measure the baseline" without assigning any value. Omit numerical goals in this revision.'
+    if role == 'Analyst' and (report or brief.get('channel_evidence')):
         system += (' Audit the CMO, Digital Marketing and Content handoffs AND your own review against the actual rows. '
                    'Check each claimed query, page, date, metric, total, trend and causal interpretation. '
                    'Hold if any handoff asserts unsupported performance, even when the public copy is clean. '

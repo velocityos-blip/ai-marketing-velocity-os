@@ -7,12 +7,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError
 if __package__:
-    from .search_claims import annotate, enforce_review, unsupported
+    from .search_claims import annotate, channel_basis, enforce_review, unsupported
     from .seo_evidence import observations
     from .playbooks import catalog, select
     from .agents import generate, request, ROLES
 else:
-    from search_claims import annotate, enforce_review, unsupported
+    from search_claims import annotate, channel_basis, enforce_review, unsupported
     from seo_evidence import observations
     from playbooks import catalog, select
     from agents import generate, request, ROLES
@@ -116,6 +116,8 @@ def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_ve
             brief["website_audit"] = annotate(seo_audit)
         if scheduled and feedback:
             brief['measured_prior_posts'] = [{k:row[k] for k in ('network','draft','metrics','created')} for row in feedback]
+        if not skill:
+            brief['channel_evidence'] = channel_basis(brief)
         with c:
             c.execute('begin immediate')
             used=c.execute("select count(*) from runs where org=? and created>=date('now','start of month')",(oid,)).fetchone()[0]
@@ -130,10 +132,9 @@ def action(c,path,d,u,ip,*,scheduled=False,previous="",feedback=None,schedule_ve
         try:
             for role in ([catalog()[skill]['role']] if skill else ROLES):
                 model,body=generate(role,brief,history)
-                report = brief.get("website_audit", {}).get("search_console", {})
-                if role != "Analyst" and report.get("metric_basis") == "unknown" and list(unsupported(body)):
+                if not skill and role != "Analyst" and list(unsupported(body,brief)):
                     model,body=generate(role,{**brief,"correct_baseline":True},history)
-                if role == "Analyst":
+                if not skill and role == "Analyst":
                     body = enforce_review(brief,history,body)
                 history.append(dict(role=role,model=model,body=body,skill=select(role,brief)['slug']))
                 with c: c.execute('update runs set messages=? where id=?',(json.dumps(history),rid))

@@ -1,12 +1,18 @@
-"""Separate Google report availability from what its returned rows establish."""
+"""Match campaign performance claims to the source that could measure them."""
 import re
 
-METRIC = r"(?:clicks?|impressions?|organic (?:search )?(?:traffic|visibility|presence)|search (?:visibility|traffic|presence)|CTR|rankings?)"
-NUMBER = r"(?:no|none|zero|\d[\d,]*(?:\.\d+)?%?)"
+METRIC = (r"clicks?|impressions?|visits?|visitors?|sessions?|conversions?|leads?|bookings?|"
+          r"traffic|visibility|presence|CTR|rankings?|reach|likes?|shares?|comments?|reactions?|engagements?|opens?")
+NUMBER = r"no|none|zero|\d[\d,]*(?:\.\d+)?%?"
+MODIFIER = (r"current|known|visible|organic|paid|social|search|website|site|referral|email|direct|unique|"
+            r"recorded|measured|measurable|total|tracked|LinkedIn|Instagram|Facebook|Mastodon")
 CLAIM = re.compile(
-    rf"\b{NUMBER}[\s-]+(?:(?:current|visible|organic|search|recorded|measured|measurable|total)\s+){{0,3}}{METRIC}\b"
-    rf"|\b{METRIC}\s*(?:(?:is|was|were|are|of|at|equals?|totaled|:|=)\s*)+{NUMBER}\b"
-    rf"|\b(?:no|zero|absent)\s+(?:current\s+)?organic search presence\b", re.I)
+    rf"\b(?P<n1>{NUMBER})[\s-]+(?:(?:{MODIFIER})[\s-]+){{0,5}}(?P<m1>{METRIC})\b"
+    rf"|\b(?P<m2>{METRIC})\s*(?:(?:is|was|were|are|of|at|equals?|totaled|:|=)\s*)+(?P<n2>{NUMBER})\b", re.I)
+NETWORKS = ("linkedin", "instagram", "facebook", "mastodon")
+METRIC_KEYS = {"click":("clicks","clickCount"),"impression":("impressions","impressionCount"),
+               "like":("likes","likeCount"),"share":("shares","shareCount"),"comment":("comments","commentCount"),
+               "reaction":("reactions",),"reach":("reach",),"ctr":("ctr",)}
 OBSERVED = re.compile(r"\b(?:currently|recorded|received|reported|had|confirmed|shows?|baseline (?:is|was|of)|data (?:shows?|indicates?))\b",re.I)
 FUTURE = re.compile(r"\b(?:goal|target|aim|if|threshold|hypothesis|at least|propose|success criterion)\b",re.I)
 
@@ -17,7 +23,37 @@ def annotate(audit):
     return {**audit, "search_console": {**report, "metric_basis": "returned rows" if measured else "unknown"}}
 
 
-def unsupported(text):
+def channel_basis(brief):
+    report = brief.get("website_audit", {}).get("search_console", {})
+    posts = brief.get("measured_prior_posts", [])
+    return {"search_console": "query/page rows" if report.get("status") == "available" and report.get("rows") else "unknown",
+            "social_posts": sorted({p["network"] for p in posts if p.get("metrics")}) or "unknown",
+            "site_visits_by_channel": "unknown", "email_performance": "unknown", "qualified_conversions": "unknown"}
+
+
+def supported(brief, sentence, match):
+    metric = (match["m1"] or match["m2"]).lower().rstrip("s")
+    value = (match["n1"] or match["n2"]).lower()
+    number = 0 if value in ("no","none","zero") else float(value.rstrip("%").replace(",",""))
+    keys = METRIC_KEYS.get(metric, ())
+    context = sentence.lower()
+    networks = [n for n in NETWORKS if re.search(r"\b"+n+r"\b",context)]
+    if re.search(r"\b(utm|referral|paid|email|newsletter|sitewide|site-wide)\b",context) or len(networks)>1:
+        sources = []
+    elif networks:
+        sources = [p.get("metrics", {}) for p in brief.get("measured_prior_posts", []) if p["network"] in networks]
+    elif re.search(r"\b(social|email|paid|referral|utm|direct|newsletter)\b",context):
+        sources = []
+    else:
+        google = brief.get("website_audit", {}).get("search_console", {})
+        sources = google.get("rows", []) if google.get("status") == "available" else []
+    if metric == "ctr" and value.endswith("%"):
+        number /= 100
+    return any(row.get(key) == number for row in sources for key in keys)
+
+
+def unsupported(text, brief=None):
+    brief = brief or {}
     for sentence in re.split(r"(?<=[.!?;])\s+|\n+", text):
         sentence = sentence.replace("**","").replace("\u2011","-")
         for match in CLAIM.finditer(sentence):
@@ -33,29 +69,24 @@ def unsupported(text):
             suffix = sentence[match.end():]
             if re.match(r"\s+(?:target|goal|threshold|decision rule)\b",suffix,re.I):
                 continue
-            numeric = re.search(r"\d[\d,]*(?:\.\d+)?",match.group())
-            if numeric and float(numeric.group().replace(",","")) > 0 and not OBSERVED.search(sentence):
-                continue
-            yield match.group().strip()
+            if not supported(brief,sentence,match):
+                yield match.group().strip()
 
 
 def enforce_review(brief, history, review):
-    report = brief.get("website_audit", {}).get("search_console", {})
-    if report.get("metric_basis") != "unknown":
-        return review
     findings = []
     for msg in history:
-        claims = list(dict.fromkeys(unsupported(msg["body"])))
+        claims = list(dict.fromkeys(unsupported(msg["body"], brief)))
         if claims:
             findings.append(msg["role"] + " asserted " + ", ".join(repr(c) for c in claims[:4]))
     # A HOLD may quote the very claim it rejects. Prefer the original offending
     # handoff when available; independently check the reviewer before release.
     if not findings and not review.startswith("HOLD\n"):
-        claims = list(dict.fromkeys(unsupported(review)))
+        claims = list(dict.fromkeys(unsupported(review, brief)))
         if claims:
             findings.append("Analyst asserted " + ", ".join(repr(c) for c in claims[:4]))
     if findings:
-        return ("HOLD\nUnsupported search-performance claim. " + "; ".join(findings) +
-                ". The report provides no measured baseline. Remove these assertions before publication. "
+        return ("HOLD\nUnsupported channel-performance claim. " + "; ".join(findings) +
+                ". No matching measurement supports the stated channel, metric and value. Treat the baseline as unknown. Remove these assertions before publication. "
                 "Keep proposed targets and crawl observations separate from measured search performance.")
     return review

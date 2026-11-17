@@ -27,3 +27,16 @@ class SearchClaimsTests(unittest.TestCase):
         measured=annotate({"search_console":{"status":"available","rows":[{"clicks":0,"impressions":12}]}})
         self.assertEqual(measured["search_console"]["metric_basis"],"returned rows")
         self.assertEqual(enforce_review({"website_audit":measured},[],"READY\nReported 0 clicks."),"READY\nReported 0 clicks.")
+
+    def test_missing_channel_metrics_even_when_other_sources_report_zero(self):
+        brief={"website_audit":annotate({"search_console":{"status":"available","rows":[{"clicks":0}]}}),
+               "measured_prior_posts":[{"network":"linkedin","metrics":{"clickCount":0}}]}
+        for claim in ("Baseline is zero known organic social visits.", "Email opens were zero.",
+                      "Recorded 0 paid conversions.", "Reported 0 Instagram clicks.",
+                      "We recorded 4 LinkedIn sessions."):
+            result=enforce_review(brief,[{"role":"CMO","body":claim}],"READY\nReviewed.")
+            self.assertIn("CMO asserted",result,claim)
+        for sentence in ("The LinkedIn post recorded 0 clicks.", "Search Console reported 0 clicks.",
+                         "Our goal is 25 social visits.", "Social visits are unknown."):
+            self.assertEqual(enforce_review(brief,[{"role":"CMO","body":sentence}],"READY"),"READY",sentence)
+        self.assertIn("Analyst asserted",enforce_review({},[],"READY\nBaseline is zero known organic social visits."))
