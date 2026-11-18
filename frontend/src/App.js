@@ -4,6 +4,7 @@ import axios from 'axios';
 import { SubscriptionPage, AIToolsPage, TasksPage } from './pages';
 import { Home, Account, Desk } from './Experience';
 import './App.css';
+import WorkspaceShell from './WorkspaceShell';
 
 const basePath = process.env.PUBLIC_URL || '';
 const API_URL = process.env.REACT_APP_BACKEND_URL || basePath;
@@ -498,8 +499,10 @@ function AppRoutes() {
     return <AuthCallback />;
   }
 
+  const shell = user && ["/dashboard","/team","/tasks","/subscription","/ai-tools"].includes(location.pathname);
+  const Wrapper = shell ? WorkspaceShell : React.Fragment;
   return (
-    <div className={["/team","/tasks","/subscription","/ai-tools"].includes(location.pathname)?"vos-tools-theme":undefined}><Routes>
+    <Wrapper {...(shell ? {user,logout} : {})}><div className={["/team","/tasks","/subscription","/ai-tools"].includes(location.pathname)?"vos-tools-theme":undefined}><Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
@@ -544,7 +547,7 @@ function AppRoutes() {
         }
       />
       <Route path="*" element={<Navigate to="/" />} />
-    </Routes></div>
+    </Routes></div></Wrapper>
   );
 }
 

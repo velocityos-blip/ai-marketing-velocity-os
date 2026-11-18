@@ -38,4 +38,4 @@ export function Account({mode,auth,basePath}){
  <button className="vquiet" onClick={()=>{window.location.href='https://auth.emergentagent.com/?redirect='+encodeURIComponent(window.location.origin+basePath+'/dashboard')}}>Continue with Google</button>
  <p>{signup?'Already registered? ':'New to VOS? '}<Link to={signup?'/login':'/register'}>{signup?'Sign in':'Create a workspace'}</Link></p></main><Footer/></div>
 }
-export function Desk({auth,api}){return <div className="velocity"><Header user={auth.user} logout={auth.logout}/><main className="vwrap desk"><CampaignDesk api={api}/><details className="tools"><summary>Workspace tools</summary><div className="actions">{[['Team','/team'],['Tasks','/tasks'],['AI tools','/ai-tools'],['Subscription','/subscription']].map(([n,url])=><Link to={url} key={url}>{n}</Link>)}</div></details></main><Footer/></div>}
+export function Desk({auth,api}){return <CampaignDesk api={api}/>}
