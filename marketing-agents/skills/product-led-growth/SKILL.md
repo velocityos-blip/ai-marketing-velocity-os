@@ -1,7 +1,7 @@
 ---
 name: product-led-growth
 description: Product-led growth. Trace the path from acquisition to first value, repeated value and expansion.
-role: Growth
+role: Analyst
 triggers: product-led growth,PLG,activation loop
 ---
 

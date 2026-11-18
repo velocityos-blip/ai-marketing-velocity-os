@@ -1,7 +1,7 @@
 ---
 name: customer-success-marketing
 description: Customer success marketing. Use the customer journey and product adoption evidence to identify an achievable behavior change.
-role: Customer Marketing
+role: Digital Marketing
 triggers: customer success marketing,adoption campaign,renewal campaign
 ---
 

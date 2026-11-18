@@ -1,7 +1,7 @@
 ---
 name: content-repurposing
 description: Content repurposing. Start with one source asset and its intended audience.
-role: Content Marketing
+role: Content
 triggers: repurpose content,content atomization,repurpose a webinar
 ---
 

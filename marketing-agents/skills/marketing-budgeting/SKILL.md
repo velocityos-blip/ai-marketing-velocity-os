@@ -1,7 +1,7 @@
 ---
 name: marketing-budgeting
 description: Marketing budgeting. Start with the business goal, available budget and planning period.
-role: CMO
+role: Analyst
 triggers: marketing budget,marketing allocation,budget planning
 ---
 

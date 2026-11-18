@@ -1,7 +1,7 @@
 ---
 name: newsletter
 description: Newsletter marketing. Define the reader promise and editorial cadence.
-role: Email Marketing
+role: Content
 triggers: newsletter,email newsletter,newsletter strategy
 ---
 

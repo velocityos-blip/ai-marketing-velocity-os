@@ -1,7 +1,7 @@
 ---
 name: customer-marketing
 description: Customer marketing. Identify customer segments and moments where participation benefits both the customer and the business.
-role: Customer Marketing
+role: Content
 triggers: customer marketing,customer advocacy,customer community
 ---
 

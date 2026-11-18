@@ -1,7 +1,7 @@
 ---
 name: case-studies
 description: Customer case studies. Plan a customer-approved story around the initial challenge, decision, implementation and evidenced outcome.
-role: Content Marketing
+role: Content
 triggers: case study,customer story,customer proof
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: podcast-marketing
 description: Podcast marketing. Set a distinct listener promise and repeatable editorial format.
-role: Content Marketing
+role: Content
 triggers: podcast,podcast episode,podcast launch
 ---
 

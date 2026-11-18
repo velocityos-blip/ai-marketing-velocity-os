@@ -1,7 +1,7 @@
 ---
 name: campaign-brief
 description: Campaign brief. Translate the requested outcome into one audience, behavior change and offer.
-role: Campaign Lead
+role: CMO
 triggers: campaign brief,brief a campaign,campaign scope
 ---
 

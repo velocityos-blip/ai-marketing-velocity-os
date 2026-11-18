@@ -1,7 +1,7 @@
 ---
 name: positioning
 description: Positioning. Clarify target segment, urgent problem, current alternatives and purchase criteria.
-role: Product Marketing
+role: CMO
 triggers: positioning,market positioning,positioning statement
 ---
 

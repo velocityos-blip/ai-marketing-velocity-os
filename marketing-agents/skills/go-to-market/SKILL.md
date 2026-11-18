@@ -1,7 +1,7 @@
 ---
 name: go-to-market
 description: Go-to-market strategy. Coordinate target segment, positioning, packaging, pricing inputs, launch readiness, channel roles, sales enablement, customer support and measurement.
-role: Product Marketing
+role: CMO
 triggers: go to market,GTM plan,product launch strategy
 ---
 

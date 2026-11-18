@@ -1,7 +1,7 @@
 ---
 name: messaging
 description: Messaging framework. Turn the approved positioning into audience-specific message layers.
-role: Product Marketing
+role: Content
 triggers: messaging,messaging framework,value proposition
 ---
 

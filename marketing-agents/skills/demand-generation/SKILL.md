@@ -1,7 +1,7 @@
 ---
 name: demand-generation
 description: Demand generation. Start from a pipeline or revenue goal and audience.
-role: Demand Generation
+role: CMO
 triggers: demand generation,demand gen,pipeline campaign
 ---
 

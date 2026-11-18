@@ -1,7 +1,7 @@
 ---
 name: webinar-marketing
 description: Webinar marketing. Define the audience problem and practical learning outcome.
-role: Field Marketing
+role: Digital Marketing
 triggers: webinar,webinar campaign,virtual event
 ---
 

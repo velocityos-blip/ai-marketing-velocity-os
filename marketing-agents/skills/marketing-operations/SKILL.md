@@ -1,7 +1,7 @@
 ---
 name: marketing-operations
 description: Marketing operations. Map the campaign process, data flow, tools, ownership and failure points.
-role: Marketing Operations
+role: Analyst
 triggers: marketing operations,marketing ops,marketing systems
 ---
 

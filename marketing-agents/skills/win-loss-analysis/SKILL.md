@@ -1,7 +1,7 @@
 ---
 name: win-loss-analysis
 description: Win-loss analysis. Define the deal cohort and decision period.
-role: Product Marketing
+role: Analyst
 triggers: win loss,win/loss analysis,deal interviews
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: landing-page
 description: Landing page. Match page intent to the traffic source and funnel stage.
-role: Conversion Marketing
+role: Content
 triggers: landing page,landing page copy,page conversion
 ---
 

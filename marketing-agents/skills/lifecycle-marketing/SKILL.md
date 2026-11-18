@@ -1,7 +1,7 @@
 ---
 name: lifecycle-marketing
 description: Lifecycle marketing. Map meaningful customer states and events from signup through adoption, renewal and reactivation.
-role: Lifecycle Marketing
+role: Digital Marketing
 triggers: lifecycle marketing,customer lifecycle,nurture sequence
 ---
 

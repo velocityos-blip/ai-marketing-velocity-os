@@ -1,7 +1,7 @@
 ---
 name: affiliate-marketing
 description: Affiliate marketing. Assess whether partner-led acquisition fits the offer, margin and customer journey.
-role: Partnerships
+role: Digital Marketing
 triggers: affiliate marketing,affiliate program,referral partner
 ---
 
