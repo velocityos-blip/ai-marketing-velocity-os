@@ -45,3 +45,30 @@ VOS implements native workflows for all 35 distinct skill topics in [Claude SEO]
 | seo-sxo | [seo-sxo](seo-sxo/SKILL.md) |
 | seo-technical | [seo-technical](seo-technical/SKILL.md) |
 | seo-unlighthouse | [seo-unlighthouse](seo-unlighthouse/SKILL.md) |
+
+## Additional growth workflows
+
+These 20 native playbooks expand the collection from 83 to 103 distinct skills. They cover strategic work, demand and product growth, customer lifecycle, campaign production and marketing operations.
+
+| Workflow | Playbook |
+|---|---|
+| Brand strategy | [brand-strategy](brand-strategy/SKILL.md) |
+| Positioning | [positioning](positioning/SKILL.md) |
+| Messaging framework | [messaging](messaging/SKILL.md) |
+| Demand generation | [demand-generation](demand-generation/SKILL.md) |
+| Product-led growth | [product-led-growth](product-led-growth/SKILL.md) |
+| Lifecycle marketing | [lifecycle-marketing](lifecycle-marketing/SKILL.md) |
+| Customer marketing | [customer-marketing](customer-marketing/SKILL.md) |
+| Customer success marketing | [customer-success-marketing](customer-success-marketing/SKILL.md) |
+| Win-loss analysis | [win-loss-analysis](win-loss-analysis/SKILL.md) |
+| Campaign brief | [campaign-brief](campaign-brief/SKILL.md) |
+| Landing page | [landing-page](landing-page/SKILL.md) |
+| Content repurposing | [content-repurposing](content-repurposing/SKILL.md) |
+| Newsletter marketing | [newsletter](newsletter/SKILL.md) |
+| Customer case studies | [case-studies](case-studies/SKILL.md) |
+| Webinar marketing | [webinar-marketing](webinar-marketing/SKILL.md) |
+| Podcast marketing | [podcast-marketing](podcast-marketing/SKILL.md) |
+| Affiliate marketing | [affiliate-marketing](affiliate-marketing/SKILL.md) |
+| Marketing operations | [marketing-operations](marketing-operations/SKILL.md) |
+| Marketing budgeting | [marketing-budgeting](marketing-budgeting/SKILL.md) |
+| Go-to-market strategy | [go-to-market](go-to-market/SKILL.md) |
