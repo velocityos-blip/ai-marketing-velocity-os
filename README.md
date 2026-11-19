@@ -65,6 +65,10 @@ AI and billing integrations require their own provider credentials and deploymen
 
 The standalone pilot stores local company data and social credentials in its private data directory. Protect that directory and its backups; review the [operating boundary](marketing-agents/README.md#operating-boundary) before exposing a deployment. The app does not publish automatically: a user must approve copy and explicitly publish it. The standalone edition currently supports Mastodon; other channel integrations and scheduled publishing are not implemented there.
 
+## License
+
+Unless a file or notice says otherwise, original Velocity OS code, documentation, and playbooks are released under the MIT License in [LICENSE](LICENSE). Third-party materials retain their original terms; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The standalone marketing agents edition also includes its license at [marketing-agents/LICENSE](marketing-agents/LICENSE).
+
 ## Contributing
 
 Issues and pull requests are welcome. When adding or editing a playbook, keep it specific, actionable, and clear about required inputs, expected output, and human review. See the existing files in [marketing-agents/skills](marketing-agents/skills/).
