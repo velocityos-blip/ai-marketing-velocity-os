@@ -1,36 +1,74 @@
-# Velocity OS
+# AI Marketing (Velocity OS)
 
-Velocity OS is a marketing workspace that puts campaign planning, AI writing tools, and team tasks in one application. A marketer can draft ad copy for a campaign; a team can organize related tasks by workspace and record the metrics it wants to track.
+**Velocity OS is an AI-powered marketing workspace for planning campaigns, coordinating specialist agents, and turning repeatable marketing work into practical playbooks.**
 
-## What’s in the repository
+It brings campaign operations and a reusable library of **103 marketing agent skills and playbooks** into one open repository. Teams can use the self-hosted marketing agents on their own, or connect campaign work to the Velocity OS dashboard.
 
-| Area | What the code implements |
+## What it helps you do
+
+- Turn a company brief, audience, offer, and goal into a campaign plan.
+- Assign structured work across CMO, Digital Marketing, Content, and Analyst roles.
+- Draft and review channel-ready marketing content with human approval.
+- Organize campaigns, tasks, schedules, social accounts, and performance metrics.
+- Reuse documented skills and playbooks for common marketing and growth workflows.
+- Run locally in a no-API-key demo mode, or configure supported model providers for agent runs.
+
+Agent outputs are drafts and recommendations for a human to review. Publishing is an explicit approval step; campaign budgets are planning inputs and the app does not buy ads.
+
+## The marketing agents and playbooks
+
+The repository includes **103 reusable playbooks** under [marketing-agents/skills](marketing-agents/skills/). They cover practical work across marketing strategy, content, SEO, social media, campaigns, analytics, and growth. Each playbook gives an agent a focused role, clear inputs, and a repeatable workflow.
+
+The self-hosted marketing desk runs a four-step workflow:
+
+1. **CMO** assesses the brief and identifies strategic direction and gaps.
+2. **Digital Marketing** turns the assessment into a channel plan and experiments.
+3. **Content** drafts a campaign asset from the brief and preceding work.
+4. **Analyst** reviews the draft and proposes how to measure the result.
+
+You can try the local, template-based mode without provider keys, then configure each role to use a supported model provider. See the [marketing agents guide](marketing-agents/README.md) for setup, provider configuration, publishing boundaries, and operating notes.
+
+## Repository layout
+
+| Path | Purpose |
 | --- | --- |
-| Team workspace | Account registration and login, invitations, member roles, and workspace settings |
-| Marketing operations | API routes for company profiles, social profiles, metrics, strategies, and tasks |
-| AI tools | Separate endpoints for marketing assessments, strategy drafts, copy, ad creative text, and generating tasks from a strategy |
-| Subscriptions | Stripe checkout, payment status, and webhook handling |
+| [frontend/](frontend/) | React dashboard for teams, campaigns, agent work, schedules, integrations, and skills |
+| [backend/](backend/) | FastAPI API for workspaces, campaign workflows, AI tools, and marketing operations |
+| [marketing-agents/](marketing-agents/) | Independent self-hosted marketing desk and 103 agent playbooks |
+| [deploy/](deploy/) | Docker Compose, Caddy, bootstrap, and deployment documentation |
 
-## Architecture
+The main Velocity OS dashboard and the standalone marketing desk have separate authentication and data stores. The self-hosted edition can run independently.
 
-The [React application](frontend/src/App.js) handles routing, sign-in, the dashboard, and team management. The [feature pages](frontend/src/pages.js) call the backend for subscriptions, AI tools, and tasks. The [FastAPI server](backend/server.py) exposes the API under `/api`, uses PyMongo for workspace data, and calls the Emergent integrations library for language model and Stripe requests.
+## Try the self-hosted marketing desk
 
-## Local development
+Requires Python 3.11 or newer.
 
-- **Frontend:** From `frontend/`, run `npm install`, then `npm start`. Set `REACT_APP_BACKEND_URL` to the backend origin before starting the frontend.
-- **Backend:** The application entry point is `server:app` inside `backend/`. It needs MongoDB and backend configuration, including `MONGO_URL` and a private `JWT_SECRET_KEY`. AI and billing use separate provider credentials.
-- **Setup status:** Install the [backend requirements](backend/requirements.txt). Existing Stripe and AI tools also require the Emergent integrations package in their deployment environment. With the dependencies and services configured, `GET /api/health` is the backend’s health route.
+```sh
+cd marketing-agents
+python3 -m unittest -v
+python3 app.py
+```
 
-## Self-hosted marketing agents
+Open **http://127.0.0.1:8787**, create a company, enter a goal and audience, then choose **Start agent run**. The default local mode generates labeled templates; it does not call a language model or publish content. Configure your own provider keys to run with a model. See the [full setup guide](marketing-agents/README.md).
 
-[Run the marketing agents edition](marketing-agents/README.md) to take a company brief through CMO assessment, channel planning, copywriting, review, and approved Mastodon publishing. This standalone Python edition supports per-role model selection and a local demo that requires no API keys.
+## Run the full dashboard
 
-## Campaigns in the VOS dashboard
+The dashboard uses a React frontend, FastAPI backend, and MongoDB. For local development:
 
-Company members can use their existing VOS sign-in to start a campaign on the dashboard and read the CMO, Digital Marketing, Content and Analyst handoffs. Owners and admins can also approve copy and manage the publishing account. The server resolves membership for each request using the existing VOS team directory. The standalone edition has its own history. Connecting the dashboard creates a campaign store for each existing VOS workspace.
+- Frontend: from frontend/, run `npm install` and `npm start`. Configure `REACT_APP_BACKEND_URL` for the API origin.
+- Backend: install [backend requirements](backend/requirements.txt), configure MongoDB and a private `JWT_SECRET_KEY`, then start from the repository root with `uvicorn server:app --app-dir backend --host 0.0.0.0 --port 8000`.
+- Deployment: start with the [deployment guide](deploy/README.md).
 
-Deploy the full repository with Python 3.11, the existing MongoDB connection and JWT signing configuration, and one Uvicorn worker. Start from the repository root with `uvicorn server:app --app-dir backend --host 0.0.0.0 --port 8000 --workers 1`. Give VOS_DATA a private, persistent directory dedicated to this service. Campaigns, quota reservations and publishing tokens live there. Tokens are stored in SQLite, so restrict host and backup access. Configure roles and provider credentials as described in the [agent guide](marketing-agents/README.md). Billing entitlements for the campaign allowance are managed separately.
+AI and billing integrations require their own provider credentials and deployment dependencies. Never commit secrets, API keys, social tokens, or production data.
 
-For a deployment under /vos/, build the frontend with `PUBLIC_URL=/vos INLINE_RUNTIME_CHUNK=false GENERATE_SOURCEMAP=false npm run build` from frontend/. Leave REACT_APP_BACKEND_URL unset so the browser uses /vos/api. Serve the compiled files below /vos/ with SPA fallback for dashboard and sign-in routes. Proxy /vos/api/* to /api/* on the existing VOS backend. Preserve the session cookie, bearer token and X-VOS-Client header. The main website can link directly to /vos/dashboard.
+## Security and publishing
 
-To test the integrated flow, install mongomock in the test environment and run `python -m unittest test_dashboard_campaigns` from backend/. The test uses temporary campaign storage and a simulated MongoDB instance.
+The standalone pilot stores local company data and social credentials in its private data directory. Protect that directory and its backups; review the [operating boundary](marketing-agents/README.md#operating-boundary) before exposing a deployment. The app does not publish automatically: a user must approve copy and explicitly publish it. The standalone edition currently supports Mastodon; other channel integrations and scheduled publishing are not implemented there.
+
+## Contributing
+
+Issues and pull requests are welcome. When adding or editing a playbook, keep it specific, actionable, and clear about required inputs, expected output, and human review. See the existing files in [marketing-agents/skills](marketing-agents/skills/).
+
+---
+
+**AI Marketing (Velocity OS)** · Campaign workspace, marketing agents, and reusable playbooks.
