@@ -46,9 +46,23 @@ VOS implements native workflows for all 35 distinct skill topics in [Claude SEO]
 | seo-technical | [seo-technical](seo-technical/SKILL.md) |
 | seo-unlighthouse | [seo-unlighthouse](seo-unlighthouse/SKILL.md) |
 
+## AEO and GEO workflows
+
+These five workflows add answer-engine optimization (AEO) and generative-engine optimization (GEO) to the SEO collection. AEO focuses on making useful answers clear and well-supported; GEO measures where AI-generated answers mention or cite the brand. They complement the existing [AI search visibility check](ai-seo/SKILL.md). No playbook guarantees a mention, citation, or ranking.
+
+| Workflow | Playbook |
+|---|---|
+| Answer-engine content brief | [aeo-content-brief](aeo-content-brief/SKILL.md) |
+| Answer-engine page optimization | [aeo-page-optimization](aeo-page-optimization/SKILL.md) |
+| AI crawler and index readiness | [aeo-crawler-readiness](aeo-crawler-readiness/SKILL.md) |
+| Generative visibility and citation audit | [geo-visibility-audit](geo-visibility-audit/SKILL.md) |
+| Generative search measurement | [geo-measurement](geo-measurement/SKILL.md) |
+
+These playbooks follow current platform guidance: keep foundational SEO and people-first content, verify bot access using each platform's first-party documentation, and measure citations with explicit scope and sample limits. Google documents no special schema or AI text-file requirement for its AI search features. See the source links inside the relevant playbooks.
+
 ## Additional growth workflows
 
-These 20 native playbooks expand the collection from 83 to 103 distinct skills. They cover strategic work, demand and product growth, customer lifecycle, campaign production and marketing operations.
+These 20 native playbooks expanded the collection from 83 to 103 distinct skills. Five AEO/GEO playbooks bring the current total to 108. The growth workflows cover strategic work, demand and product growth, customer lifecycle, campaign production and marketing operations.
 
 | Workflow | Playbook |
 |---|---|

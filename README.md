@@ -2,7 +2,7 @@
 
 **Velocity OS is an AI-powered marketing workspace for planning campaigns, coordinating specialist agents, and turning repeatable marketing work into practical playbooks.**
 
-It brings campaign operations and a reusable library of **103 marketing agent skills and playbooks** into one open repository. Teams can use the self-hosted marketing agents on their own, or connect campaign work to the Velocity OS dashboard.
+It brings campaign operations and a reusable library of **108 marketing agent skills and playbooks** into one open repository. Teams can use the self-hosted marketing agents on their own, or connect campaign work to the Velocity OS dashboard.
 
 ## What it helps you do
 
@@ -17,7 +17,7 @@ Agent outputs are drafts and recommendations for a human to review. Publishing i
 
 ## The marketing agents and playbooks
 
-The repository includes **103 reusable playbooks** under [marketing-agents/skills](marketing-agents/skills/). They cover practical work across marketing strategy, content, SEO, social media, campaigns, analytics, and growth. Each playbook gives an agent a focused role, clear inputs, and a repeatable workflow.
+The repository includes **108 reusable playbooks** under [marketing-agents/skills](marketing-agents/skills/). They cover practical work across marketing strategy, content, SEO, social media, campaigns, analytics, and growth. Each playbook gives an agent a focused role, clear inputs, and a repeatable workflow.
 
 The self-hosted marketing desk runs a four-step workflow:
 
@@ -34,7 +34,7 @@ You can try the local, template-based mode without provider keys, then configure
 | --- | --- |
 | [frontend/](frontend/) | React dashboard for teams, campaigns, agent work, schedules, integrations, and skills |
 | [backend/](backend/) | FastAPI API for workspaces, campaign workflows, AI tools, and marketing operations |
-| [marketing-agents/](marketing-agents/) | Independent self-hosted marketing desk and 103 agent playbooks |
+| [marketing-agents/](marketing-agents/) | Independent self-hosted marketing desk and 108 agent playbooks |
 | [deploy/](deploy/) | Docker Compose, Caddy, bootstrap, and deployment documentation |
 
 The main Velocity OS dashboard and the standalone marketing desk have separate authentication and data stores. The self-hosted edition can run independently.
